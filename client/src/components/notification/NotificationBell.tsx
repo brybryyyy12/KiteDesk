@@ -325,7 +325,7 @@ function NotificationBell() {
       {open && (
         <div
           role="menu"
-          className="absolute right-0 top-[calc(100%+12px)] z-[120] w-[370px] max-w-[calc(100vw-24px)] overflow-hidden rounded-2xl border border-kite-line bg-white shadow-[0_24px_70px_-30px_rgba(46,51,56,0.5)]"
+          className="fixed left-2 right-2 top-[68px] z-[120] flex max-h-[calc(100dvh-80px)] flex-col overflow-hidden rounded-2xl border border-kite-line bg-white shadow-[0_24px_70px_-30px_rgba(46,51,56,0.5)] sm:absolute sm:left-auto sm:right-0 sm:top-[calc(100%+12px)] sm:w-[370px] sm:max-w-[calc(100vw-24px)]"
         >
 
           {/* HEADER */}

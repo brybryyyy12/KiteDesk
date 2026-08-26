@@ -16,6 +16,12 @@ import {
   type TaskActivity,
 } from "../../context/TaskContext";
 
+/*
+|--------------------------------------------------------------------------
+| TYPES
+|--------------------------------------------------------------------------
+*/
+
 type ProjectActivitySectionProps = {
   project: Project;
 };
@@ -36,6 +42,12 @@ type ActivityKind =
   | "priority"
   | "task";
 
+type SummaryKind =
+  | "status"
+  | "comment"
+  | "attachment"
+  | "assignment";
+
 type ProjectActivityItem = {
   id: string;
 
@@ -52,6 +64,12 @@ type ProjectActivityItem = {
   kind: ActivityKind;
 };
 
+/*
+|--------------------------------------------------------------------------
+| FILTERS
+|--------------------------------------------------------------------------
+*/
+
 const filters: ActivityFilter[] = [
   "All",
   "Status",
@@ -59,6 +77,12 @@ const filters: ActivityFilter[] = [
   "Attachments",
   "Assignments",
 ];
+
+/*
+|--------------------------------------------------------------------------
+| ACTIVITY TYPE
+|--------------------------------------------------------------------------
+*/
 
 function getActivityKind(
   activity: TaskActivity
@@ -102,6 +126,274 @@ function getActivityKind(
   return "task";
 }
 
+/*
+|--------------------------------------------------------------------------
+| DATE HELPERS
+|--------------------------------------------------------------------------
+*/
+
+function formatDateTime(
+  value: string
+) {
+  return new Date(
+    value
+  ).toLocaleString(
+    "en-US",
+    {
+      month: "short",
+      day: "numeric",
+      year: "numeric",
+      hour: "numeric",
+      minute: "2-digit",
+    }
+  );
+}
+
+function formatRelativeDate(
+  value: string
+) {
+  const date =
+    new Date(value);
+
+  const now =
+    new Date();
+
+  const diff =
+    now.getTime() -
+    date.getTime();
+
+  const minutes =
+    Math.floor(
+      diff / 60000
+    );
+
+  const hours =
+    Math.floor(
+      diff /
+        (
+          1000 *
+          60 *
+          60
+        )
+    );
+
+  const days =
+    Math.floor(
+      diff /
+        (
+          1000 *
+          60 *
+          60 *
+          24
+        )
+    );
+
+  if (
+    minutes < 1
+  ) {
+    return "Just now";
+  }
+
+  if (
+    minutes < 60
+  ) {
+    return `${minutes}m ago`;
+  }
+
+  if (
+    hours < 24
+  ) {
+    return `${hours}h ago`;
+  }
+
+  if (
+    days === 1
+  ) {
+    return "Yesterday";
+  }
+
+  if (
+    days < 7
+  ) {
+    return `${days}d ago`;
+  }
+
+  return formatDateTime(
+    value
+  );
+}
+
+/*
+|--------------------------------------------------------------------------
+| ACTIVITY ICON STYLE
+|--------------------------------------------------------------------------
+*/
+
+function activityIconStyle(
+  kind: ActivityKind
+) {
+  switch (kind) {
+    case "status":
+      return "bg-emerald-50 text-emerald-600";
+
+    case "comment":
+      return "bg-violet-50 text-violet-600";
+
+    case "attachment":
+      return "bg-orange-50 text-orange-600";
+
+    case "assignment":
+      return "bg-kite-blue-wash text-kite-blue-deep";
+
+    case "priority":
+      return "bg-amber-50 text-amber-600";
+
+    case "project":
+      return "bg-kite-blue-wash text-kite-blue-deep";
+
+    default:
+      return "bg-kite-soft text-kite-muted";
+  }
+}
+
+/*
+|--------------------------------------------------------------------------
+| ACTIVITY ICON
+|--------------------------------------------------------------------------
+*/
+
+function ActivityIcon({
+  kind,
+}: {
+  kind: ActivityKind;
+}) {
+  switch (kind) {
+    case "status":
+      return (
+        <svg
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          strokeWidth="1.8"
+          className="h-4 w-4"
+        >
+          <path d="m5 12 4 4L19 6" />
+        </svg>
+      );
+
+    case "comment":
+      return (
+        <svg
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          strokeWidth="1.8"
+          className="h-4 w-4"
+        >
+          <path d="M5 5h14a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H9l-5 4v-4H5a2 2 0 0 1-2-2V7a2 2 0 0 1 2-2Z" />
+        </svg>
+      );
+
+    case "attachment":
+      return (
+        <svg
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          strokeWidth="1.8"
+          className="h-4 w-4"
+        >
+          <path d="M8 12.5 13.5 7a3 3 0 0 1 4.2 4.2l-7.2 7.2a5 5 0 0 1-7.1-7.1l7.8-7.8" />
+        </svg>
+      );
+
+    case "assignment":
+      return (
+        <svg
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          strokeWidth="1.8"
+          className="h-4 w-4"
+        >
+          <circle
+            cx="9"
+            cy="8"
+            r="3"
+          />
+
+          <path d="M4 19c.6-3.2 2.3-5 5-5s4.4 1.8 5 5M17 9v6M14 12h6" />
+        </svg>
+      );
+
+    case "priority":
+      return (
+        <svg
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          strokeWidth="1.8"
+          className="h-4 w-4"
+        >
+          <path d="M6 20V5M6 5h10l-2 4 2 4H6" />
+        </svg>
+      );
+
+    case "project":
+      return (
+        <svg
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          strokeWidth="1.8"
+          className="h-4 w-4"
+        >
+          <path d="M3 7.5a2 2 0 0 1 2-2h5l2 2h7a2 2 0 0 1 2 2v8.5a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2Z" />
+        </svg>
+      );
+
+    default:
+      return (
+        <svg
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          strokeWidth="1.8"
+          className="h-4 w-4"
+        >
+          <path d="M8 6h12M8 12h12M8 18h12" />
+
+          <circle
+            cx="4"
+            cy="6"
+            r="1"
+            fill="currentColor"
+          />
+
+          <circle
+            cx="4"
+            cy="12"
+            r="1"
+            fill="currentColor"
+          />
+
+          <circle
+            cx="4"
+            cy="18"
+            r="1"
+            fill="currentColor"
+          />
+        </svg>
+      );
+  }
+}
+
+/*
+|--------------------------------------------------------------------------
+| PROJECT ACTIVITY
+|--------------------------------------------------------------------------
+*/
+
 function ProjectActivitySection({
   project,
 }: ProjectActivitySectionProps) {
@@ -110,7 +402,8 @@ function ProjectActivitySection({
 
   const {
     getTasksByProject,
-  } = useTasks();
+  } =
+    useTasks();
 
   const projectTasks =
     getTasksByProject(
@@ -125,13 +418,18 @@ function ProjectActivitySection({
       "All"
     );
 
-  const [search, setSearch] =
+  const [
+    search,
+    setSearch,
+  ] =
     useState("");
 
   /*
-   * Flatten activity from every
-   * task inside the project.
-   */
+  |--------------------------------------------------------------------------
+  | ALL ACTIVITY
+  |--------------------------------------------------------------------------
+  */
+
   const allActivity =
     useMemo(() => {
       const activityItems:
@@ -139,37 +437,45 @@ function ProjectActivitySection({
         [];
 
       /*
-       * Project creation event.
+       * Project creation.
        */
       activityItems.push({
-        id: `project-${project.id}`,
+        id:
+          `project-${project.id}`,
 
-        taskId: null,
+        taskId:
+          null,
 
-        taskTitle: null,
+        taskTitle:
+          null,
 
-        actor: "Project",
+        actor:
+          "Project",
 
-        message: `${project.name} was created.`,
+        message:
+          `${project.name} was created.`,
 
         createdAt:
           project.createdAt,
 
-        kind: "project",
+        kind:
+          "project",
       });
 
       /*
-       * Task activity events.
+       * Task activity.
        */
       projectTasks.forEach(
         (task) => {
           const taskActivity =
-            task.activity ?? [];
+            task.activity ??
+            [];
 
           taskActivity.forEach(
             (activity) => {
               activityItems.push({
-                id: `${task.id}-${activity.id}`,
+                id:
+                  `${task.id}-${activity.id}`,
 
                 taskId:
                   task.id,
@@ -196,11 +502,11 @@ function ProjectActivitySection({
         }
       );
 
-      /*
-       * Newest activity first.
-       */
       return activityItems.sort(
-        (a, b) =>
+        (
+          a,
+          b
+        ) =>
           new Date(
             b.createdAt
           ).getTime() -
@@ -209,9 +515,17 @@ function ProjectActivitySection({
           ).getTime()
       );
     }, [
-      project,
+      project.id,
+      project.name,
+      project.createdAt,
       projectTasks,
     ]);
+
+  /*
+  |--------------------------------------------------------------------------
+  | FILTERED ACTIVITY
+  |--------------------------------------------------------------------------
+  */
 
   const filteredActivity =
     useMemo(() => {
@@ -231,7 +545,7 @@ function ProjectActivitySection({
           ) {
             matchesFilter =
               activity.kind ===
-                "status";
+              "status";
           }
 
           if (
@@ -240,7 +554,7 @@ function ProjectActivitySection({
           ) {
             matchesFilter =
               activity.kind ===
-                "comment";
+              "comment";
           }
 
           if (
@@ -249,7 +563,7 @@ function ProjectActivitySection({
           ) {
             matchesFilter =
               activity.kind ===
-                "attachment";
+              "attachment";
           }
 
           if (
@@ -258,20 +572,28 @@ function ProjectActivitySection({
           ) {
             matchesFilter =
               activity.kind ===
-                "assignment";
+              "assignment";
           }
 
           const matchesSearch =
             !query ||
             activity.actor
               .toLowerCase()
-              .includes(query) ||
+              .includes(
+                query
+              ) ||
             activity.message
               .toLowerCase()
-              .includes(query) ||
-            activity.taskTitle
-              ?.toLowerCase()
-              .includes(query);
+              .includes(
+                query
+              ) ||
+            Boolean(
+              activity.taskTitle
+                ?.toLowerCase()
+                .includes(
+                  query
+                )
+            );
 
           return (
             matchesFilter &&
@@ -285,287 +607,123 @@ function ProjectActivitySection({
       selectedFilter,
     ]);
 
-  const todayCount =
+  /*
+  |--------------------------------------------------------------------------
+  | COUNTS
+  |--------------------------------------------------------------------------
+  */
+
+  const {
+    todayCount,
+    statusCount,
+    commentCount,
+    attachmentCount,
+    assignmentCount,
+  } =
     useMemo(() => {
       const today =
         new Date();
 
-      return allActivity.filter(
+      let todayTotal =
+        0;
+
+      let statuses =
+        0;
+
+      let comments =
+        0;
+
+      let attachments =
+        0;
+
+      let assignments =
+        0;
+
+      allActivity.forEach(
         (activity) => {
           const date =
             new Date(
               activity.createdAt
             );
 
-          return (
+          if (
             date.getFullYear() ===
               today.getFullYear() &&
             date.getMonth() ===
               today.getMonth() &&
             date.getDate() ===
               today.getDate()
-          );
+          ) {
+            todayTotal +=
+              1;
+          }
+
+          switch (
+            activity.kind
+          ) {
+            case "status":
+              statuses +=
+                1;
+              break;
+
+            case "comment":
+              comments +=
+                1;
+              break;
+
+            case "attachment":
+              attachments +=
+                1;
+              break;
+
+            case "assignment":
+              assignments +=
+                1;
+              break;
+
+            default:
+              break;
+          }
         }
-      ).length;
-    }, [allActivity]);
-
-  const commentCount =
-    allActivity.filter(
-      (activity) =>
-        activity.kind ===
-        "comment"
-    ).length;
-
-  const attachmentCount =
-    allActivity.filter(
-      (activity) =>
-        activity.kind ===
-        "attachment"
-    ).length;
-
-  const statusCount =
-    allActivity.filter(
-      (activity) =>
-        activity.kind ===
-        "status"
-    ).length;
-
-  const formatDateTime = (
-    value: string
-  ) => {
-    return new Date(
-      value
-    ).toLocaleString(
-      "en-US",
-      {
-        month: "short",
-        day: "numeric",
-        year: "numeric",
-        hour: "numeric",
-        minute: "2-digit",
-      }
-    );
-  };
-
-  const formatRelativeDate = (
-    value: string
-  ) => {
-    const date =
-      new Date(value);
-
-    const now =
-      new Date();
-
-    const diff =
-      now.getTime() -
-      date.getTime();
-
-    const minutes =
-      Math.floor(
-        diff / 60000
       );
 
-    const hours =
-      Math.floor(
-        diff /
-          (1000 *
-            60 *
-            60)
-      );
+      return {
+        todayCount:
+          todayTotal,
 
-    const days =
-      Math.floor(
-        diff /
-          (1000 *
-            60 *
-            60 *
-            24)
-      );
+        statusCount:
+          statuses,
 
-    if (minutes < 1) {
-      return "Just now";
-    }
+        commentCount:
+          comments,
 
-    if (minutes < 60) {
-      return `${minutes}m ago`;
-    }
+        attachmentCount:
+          attachments,
 
-    if (hours < 24) {
-      return `${hours}h ago`;
-    }
+        assignmentCount:
+          assignments,
+      };
+    }, [
+      allActivity,
+    ]);
 
-    if (days === 1) {
-      return "Yesterday";
-    }
-
-    if (days < 7) {
-      return `${days}d ago`;
-    }
-
-    return formatDateTime(
-      value
-    );
-  };
-
-  const activityIcon = (
-    kind: ActivityKind
-  ) => {
-    switch (kind) {
-      case "status":
-        return (
-          <svg
-            viewBox="0 0 24 24"
-            fill="none"
-            stroke="currentColor"
-            strokeWidth="1.8"
-            className="h-4 w-4"
-          >
-            <path d="m5 12 4 4L19 6" />
-          </svg>
-        );
-
-      case "comment":
-        return (
-          <svg
-            viewBox="0 0 24 24"
-            fill="none"
-            stroke="currentColor"
-            strokeWidth="1.8"
-            className="h-4 w-4"
-          >
-            <path d="M5 5h14a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H9l-5 4v-4H5a2 2 0 0 1-2-2V7a2 2 0 0 1 2-2Z" />
-          </svg>
-        );
-
-      case "attachment":
-        return (
-          <svg
-            viewBox="0 0 24 24"
-            fill="none"
-            stroke="currentColor"
-            strokeWidth="1.8"
-            className="h-4 w-4"
-          >
-            <path d="M8 12.5 13.5 7a3 3 0 0 1 4.2 4.2l-7.2 7.2a5 5 0 0 1-7.1-7.1l7.8-7.8" />
-          </svg>
-        );
-
-      case "assignment":
-        return (
-          <svg
-            viewBox="0 0 24 24"
-            fill="none"
-            stroke="currentColor"
-            strokeWidth="1.8"
-            className="h-4 w-4"
-          >
-            <circle
-              cx="9"
-              cy="8"
-              r="3"
-            />
-
-            <path d="M4 19c.6-3.2 2.3-5 5-5s4.4 1.8 5 5M17 9v6M14 12h6" />
-          </svg>
-        );
-
-      case "priority":
-        return (
-          <svg
-            viewBox="0 0 24 24"
-            fill="none"
-            stroke="currentColor"
-            strokeWidth="1.8"
-            className="h-4 w-4"
-          >
-            <path d="M6 20V5M6 5h10l-2 4 2 4H6" />
-          </svg>
-        );
-
-      case "project":
-        return (
-          <svg
-            viewBox="0 0 24 24"
-            fill="none"
-            stroke="currentColor"
-            strokeWidth="1.8"
-            className="h-4 w-4"
-          >
-            <path d="M3 7.5a2 2 0 0 1 2-2h5l2 2h7a2 2 0 0 1 2 2v8.5a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2Z" />
-          </svg>
-        );
-
-      default:
-        return (
-          <svg
-            viewBox="0 0 24 24"
-            fill="none"
-            stroke="currentColor"
-            strokeWidth="1.8"
-            className="h-4 w-4"
-          >
-            <path d="M8 6h12M8 12h12M8 18h12" />
-            <circle
-              cx="4"
-              cy="6"
-              r="1"
-              fill="currentColor"
-            />
-            <circle
-              cx="4"
-              cy="12"
-              r="1"
-              fill="currentColor"
-            />
-            <circle
-              cx="4"
-              cy="18"
-              r="1"
-              fill="currentColor"
-            />
-          </svg>
-        );
-    }
-  };
-
-  const activityIconStyle = (
-    kind: ActivityKind
-  ) => {
-    switch (kind) {
-      case "status":
-        return "bg-emerald-50 text-emerald-600";
-
-      case "comment":
-        return "bg-violet-50 text-violet-600";
-
-      case "attachment":
-        return "bg-orange-50 text-orange-600";
-
-      case "assignment":
-        return "bg-kite-blue-wash text-kite-blue-deep";
-
-      case "priority":
-        return "bg-amber-50 text-amber-600";
-
-      case "project":
-        return "bg-kite-blue-wash text-kite-blue-deep";
-
-      default:
-        return "bg-kite-soft text-kite-muted";
-    }
-  };
+  /*
+  |--------------------------------------------------------------------------
+  | PAGE
+  |--------------------------------------------------------------------------
+  */
 
   return (
-    <section>
+    <section className="min-w-0">
 
       {/* HEADER */}
-      <div className="mb-6">
+      <div className="mb-5 sm:mb-6">
 
-        <h2 className="text-xl font-semibold tracking-tight text-kite-ink">
+        <h2 className="text-lg font-semibold tracking-tight text-kite-ink sm:text-xl">
           Project Activity
         </h2>
 
-        <p className="mt-1 text-sm text-kite-muted">
+        <p className="mt-1 max-w-2xl text-sm leading-6 text-kite-muted">
           Follow task updates,
           comments, assignments,
           reviews, and files across
@@ -575,7 +733,7 @@ function ProjectActivitySection({
       </div>
 
       {/* SUMMARY */}
-      <div className="mb-5 grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+      <div className="mb-5 grid grid-cols-2 gap-3 sm:gap-4 xl:grid-cols-4">
 
         <ActivityStat
           label="Total Activity"
@@ -586,41 +744,47 @@ function ProjectActivitySection({
 
         <ActivityStat
           label="Today"
-          value={todayCount}
+          value={
+            todayCount
+          }
         />
 
         <ActivityStat
           label="Status Updates"
-          value={statusCount}
+          value={
+            statusCount
+          }
         />
 
         <ActivityStat
           label="Comments"
-          value={commentCount}
+          value={
+            commentCount
+          }
         />
 
       </div>
 
       {/* MAIN GRID */}
-      <div className="grid gap-5 xl:grid-cols-[minmax(0,1fr)_300px]">
+      <div className="grid min-w-0 gap-5 xl:grid-cols-[minmax(0,1fr)_300px]">
 
         {/* TIMELINE */}
-        <section className="overflow-hidden rounded-2xl border border-kite-line bg-white">
+        <section className="min-w-0 overflow-hidden rounded-2xl border border-kite-line bg-white">
 
           {/* TOOLBAR */}
-          <div className="border-b border-kite-line p-4 sm:p-5">
+          <div className="border-b border-kite-line p-3 sm:p-5">
 
-            <div className="flex flex-col gap-3 lg:flex-row">
+            <div className="flex min-w-0 flex-col gap-3 lg:flex-row">
 
               {/* SEARCH */}
-              <div className="relative flex-1">
+              <div className="relative min-w-0 flex-1">
 
                 <svg
                   viewBox="0 0 24 24"
                   fill="none"
                   stroke="currentColor"
                   strokeWidth="1.7"
-                  className="absolute left-4 top-1/2 h-5 w-5 -translate-y-1/2 text-kite-faint"
+                  className="absolute left-3.5 top-1/2 h-5 w-5 -translate-y-1/2 text-kite-faint sm:left-4"
                 >
                   <circle
                     cx="11"
@@ -633,7 +797,9 @@ function ProjectActivitySection({
 
                 <input
                   type="search"
-                  value={search}
+                  value={
+                    search
+                  }
                   onChange={(
                     event
                   ) =>
@@ -643,7 +809,7 @@ function ProjectActivitySection({
                     )
                   }
                   placeholder="Search activity..."
-                  className="w-full rounded-xl border border-kite-line bg-kite-soft py-3 pl-12 pr-4 text-sm text-kite-ink outline-none transition placeholder:text-kite-faint focus:border-kite-blue focus:bg-white focus:ring-4 focus:ring-kite-blue-wash"
+                  className="w-full min-w-0 rounded-xl border border-kite-line bg-kite-soft py-3 pl-11 pr-4 text-sm text-kite-ink outline-none transition placeholder:text-kite-faint focus:border-kite-blue focus:bg-white focus:ring-4 focus:ring-kite-blue-wash sm:pl-12"
                 />
 
               </div>
@@ -661,7 +827,7 @@ function ProjectActivitySection({
                       .value as ActivityFilter
                   )
                 }
-                className="rounded-xl border border-kite-line bg-kite-soft px-4 py-3 text-sm text-kite-ink outline-none focus:border-kite-blue focus:bg-white focus:ring-4 focus:ring-kite-blue-wash lg:min-w-[180px]"
+                className="w-full rounded-xl border border-kite-line bg-kite-soft px-4 py-3 text-sm text-kite-ink outline-none focus:border-kite-blue focus:bg-white focus:ring-4 focus:ring-kite-blue-wash lg:w-auto lg:min-w-[180px]"
               >
 
                 {filters.map(
@@ -688,16 +854,16 @@ function ProjectActivitySection({
           {/* EMPTY RESULT */}
           {filteredActivity.length ===
             0 && (
-            <div className="px-6 py-16 text-center">
+            <div className="px-4 py-12 text-center sm:px-6 sm:py-16">
 
-              <div className="mx-auto grid h-14 w-14 place-items-center rounded-2xl bg-kite-soft text-kite-muted">
+              <div className="mx-auto grid h-12 w-12 place-items-center rounded-2xl bg-kite-soft text-kite-muted sm:h-14 sm:w-14">
 
                 <svg
                   viewBox="0 0 24 24"
                   fill="none"
                   stroke="currentColor"
                   strokeWidth="1.7"
-                  className="h-7 w-7"
+                  className="h-6 w-6 sm:h-7 sm:w-7"
                 >
                   <path d="M4 12h3l2-6 4 12 2-6h5" />
                 </svg>
@@ -708,7 +874,7 @@ function ProjectActivitySection({
                 No matching activity
               </h3>
 
-              <p className="mt-2 text-sm text-kite-muted">
+              <p className="mt-2 text-sm leading-6 text-kite-muted">
                 Try another search or
                 activity filter.
               </p>
@@ -719,7 +885,7 @@ function ProjectActivitySection({
           {/* ACTIVITY ITEMS */}
           {filteredActivity.length >
             0 && (
-            <div className="px-5 py-2 sm:px-6">
+            <div className="min-w-0 px-3 py-1 sm:px-6 sm:py-2">
 
               {filteredActivity.map(
                 (
@@ -736,33 +902,35 @@ function ProjectActivitySection({
                       key={
                         activity.id
                       }
-                      className="relative flex gap-4 py-5"
+                      className="relative flex min-w-0 gap-3 py-4 sm:gap-4 sm:py-5"
                     >
 
                       {/* TIMELINE LINE */}
                       {hasNext && (
-                        <div className="absolute left-[19px] top-[52px] h-[calc(100%-20px)] w-px bg-kite-line" />
+                        <div className="absolute left-[17px] top-[47px] h-[calc(100%-15px)] w-px bg-kite-line sm:left-[19px] sm:top-[52px] sm:h-[calc(100%-20px)]" />
                       )}
 
                       {/* ICON */}
                       <div
-                        className={`relative z-10 grid h-10 w-10 shrink-0 place-items-center rounded-xl ${activityIconStyle(
+                        className={`relative z-10 grid h-9 w-9 shrink-0 place-items-center rounded-xl sm:h-10 sm:w-10 ${activityIconStyle(
                           activity.kind
                         )}`}
                       >
-                        {activityIcon(
-                          activity.kind
-                        )}
+                        <ActivityIcon
+                          kind={
+                            activity.kind
+                          }
+                        />
                       </div>
 
                       {/* CONTENT */}
-                      <div className="min-w-0 flex-1">
+                      <div className="min-w-0 flex-1 overflow-hidden">
 
-                        <div className="flex flex-col justify-between gap-1 sm:flex-row sm:items-start">
+                        <div className="flex min-w-0 flex-col gap-1.5 sm:flex-row sm:items-start sm:justify-between sm:gap-3">
 
-                          <div className="min-w-0">
+                          <div className="min-w-0 flex-1">
 
-                            <p className="text-sm leading-6 text-kite-ink">
+                            <p className="break-words text-sm leading-6 text-kite-ink [overflow-wrap:anywhere]">
 
                               {activity.kind !==
                                 "project" && (
@@ -771,7 +939,8 @@ function ProjectActivitySection({
                                     {
                                       activity.actor
                                     }
-                                  </span>{" "}
+                                  </span>
+                                  {" "}
                                 </>
                               )}
 
@@ -790,7 +959,7 @@ function ProjectActivitySection({
                                       `/projects/${project.id}/tasks/${activity.taskId}`
                                     )
                                   }
-                                  className="mt-2 inline-flex max-w-full items-center gap-2 rounded-lg bg-kite-soft px-3 py-2 text-xs text-kite-muted transition hover:bg-kite-blue-wash hover:text-kite-blue-deep"
+                                  className="mt-2 flex min-h-10 w-full min-w-0 items-center gap-2 rounded-lg bg-kite-soft px-3 py-2 text-left text-xs text-kite-muted transition hover:bg-kite-blue-wash hover:text-kite-blue-deep sm:inline-flex sm:w-auto sm:max-w-full"
                                 >
 
                                   <svg
@@ -801,18 +970,21 @@ function ProjectActivitySection({
                                     className="h-3.5 w-3.5 shrink-0"
                                   >
                                     <path d="M8 6h12M8 12h12M8 18h12" />
+
                                     <circle
                                       cx="4"
                                       cy="6"
                                       r="1"
                                       fill="currentColor"
                                     />
+
                                     <circle
                                       cx="4"
                                       cy="12"
                                       r="1"
                                       fill="currentColor"
                                     />
+
                                     <circle
                                       cx="4"
                                       cy="18"
@@ -821,7 +993,7 @@ function ProjectActivitySection({
                                     />
                                   </svg>
 
-                                  <span className="truncate">
+                                  <span className="min-w-0 flex-1 truncate sm:max-w-[300px]">
                                     {
                                       activity.taskTitle
                                     }
@@ -833,14 +1005,18 @@ function ProjectActivitySection({
                           </div>
 
                           <span
-                            title={formatDateTime(
-                              activity.createdAt
-                            )}
-                            className="shrink-0 text-xs text-kite-faint"
+                            title={
+                              formatDateTime(
+                                activity.createdAt
+                              )
+                            }
+                            className="shrink-0 text-[11px] text-kite-faint sm:text-xs"
                           >
-                            {formatRelativeDate(
-                              activity.createdAt
-                            )}
+                            {
+                              formatRelativeDate(
+                                activity.createdAt
+                              )
+                            }
                           </span>
 
                         </div>
@@ -858,12 +1034,12 @@ function ProjectActivitySection({
         </section>
 
         {/* SIDEBAR */}
-        <aside className="space-y-5">
+        <aside className="grid min-w-0 gap-5 md:grid-cols-2 xl:block xl:space-y-5">
 
-          {/* ACTIVITY TYPES */}
-          <section className="rounded-2xl border border-kite-line bg-white">
+          {/* ACTIVITY SUMMARY */}
+          <section className="min-w-0 rounded-2xl border border-kite-line bg-white">
 
-            <div className="border-b border-kite-line px-5 py-4">
+            <div className="border-b border-kite-line px-4 py-4 sm:px-5">
 
               <h3 className="font-semibold text-kite-ink">
                 Activity Summary
@@ -871,17 +1047,21 @@ function ProjectActivitySection({
 
             </div>
 
-            <div className="space-y-4 p-5">
+            <div className="space-y-4 p-4 sm:p-5">
 
               <SummaryRow
                 label="Status updates"
-                value={statusCount}
+                value={
+                  statusCount
+                }
                 kind="status"
               />
 
               <SummaryRow
                 label="Comments"
-                value={commentCount}
+                value={
+                  commentCount
+                }
                 kind="comment"
               />
 
@@ -896,13 +1076,7 @@ function ProjectActivitySection({
               <SummaryRow
                 label="Assignments"
                 value={
-                  allActivity.filter(
-                    (
-                      activity
-                    ) =>
-                      activity.kind ===
-                      "assignment"
-                  ).length
+                  assignmentCount
                 }
                 kind="assignment"
               />
@@ -912,14 +1086,16 @@ function ProjectActivitySection({
           </section>
 
           {/* PROJECT INFO */}
-          <section className="rounded-2xl border border-kite-line bg-white p-5">
+          <section className="min-w-0 rounded-2xl border border-kite-line bg-white p-4 sm:p-5">
 
             <p className="text-xs font-medium uppercase tracking-wide text-kite-faint">
               Project
             </p>
 
-            <p className="mt-2 font-medium text-kite-ink">
-              {project.name}
+            <p className="mt-2 break-words font-medium text-kite-ink [overflow-wrap:anywhere]">
+              {
+                project.name
+              }
             </p>
 
             <div className="mt-5 h-px bg-kite-line" />
@@ -947,7 +1123,7 @@ function ProjectActivitySection({
                     `/projects/${project.id}/tasks`
                   )
                 }
-                className="w-full rounded-xl border border-kite-line bg-kite-soft px-4 py-2.5 text-sm font-medium text-kite-muted transition hover:bg-kite-blue-wash hover:text-kite-blue-deep"
+                className="min-h-11 w-full rounded-xl border border-kite-line bg-kite-soft px-4 py-2.5 text-sm font-medium text-kite-muted transition hover:bg-kite-blue-wash hover:text-kite-blue-deep"
               >
                 View Project Tasks
               </button>
@@ -964,6 +1140,12 @@ function ProjectActivitySection({
   );
 }
 
+/*
+|--------------------------------------------------------------------------
+| ACTIVITY STAT
+|--------------------------------------------------------------------------
+*/
+
 function ActivityStat({
   label,
   value,
@@ -972,19 +1154,25 @@ function ActivityStat({
   value: number;
 }) {
   return (
-    <div className="rounded-2xl border border-kite-line bg-white p-5">
+    <div className="min-w-0 rounded-2xl border border-kite-line bg-white p-4 sm:p-5">
 
-      <p className="text-sm text-kite-muted">
+      <p className="truncate text-xs text-kite-muted sm:text-sm">
         {label}
       </p>
 
-      <p className="mt-2 text-2xl font-semibold tracking-tight text-kite-ink">
+      <p className="mt-1.5 text-xl font-semibold tracking-tight text-kite-ink sm:mt-2 sm:text-2xl">
         {value}
       </p>
 
     </div>
   );
 }
+
+/*
+|--------------------------------------------------------------------------
+| SUMMARY ROW
+|--------------------------------------------------------------------------
+*/
 
 function SummaryRow({
   label,
@@ -993,14 +1181,11 @@ function SummaryRow({
 }: {
   label: string;
   value: number;
-  kind:
-    | "status"
-    | "comment"
-    | "attachment"
-    | "assignment";
+  kind: SummaryKind;
 }) {
   const iconClass =
-    kind === "status"
+    kind ===
+    "status"
       ? "bg-emerald-50 text-emerald-600"
       : kind ===
           "comment"
@@ -1011,11 +1196,12 @@ function SummaryRow({
           : "bg-kite-blue-wash text-kite-blue-deep";
 
   return (
-    <div className="flex items-center gap-3">
+    <div className="flex min-w-0 items-center gap-3">
 
       <div
         className={`grid h-9 w-9 shrink-0 place-items-center rounded-xl ${iconClass}`}
       >
+
         {kind ===
           "status" && (
           <svg
@@ -1078,13 +1264,13 @@ function SummaryRow({
 
       <div className="min-w-0 flex-1">
 
-        <p className="text-sm text-kite-muted">
+        <p className="truncate text-sm text-kite-muted">
           {label}
         </p>
 
       </div>
 
-      <span className="text-sm font-semibold text-kite-ink">
+      <span className="shrink-0 text-sm font-semibold text-kite-ink">
         {value}
       </span>
 
