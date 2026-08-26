@@ -1,4 +1,5 @@
 import type {
+  CookieOptions,
   Request,
   Response,
 } from "express";
@@ -104,7 +105,50 @@ const loginSchema =
 |--------------------------------------------------------------------------
 | COOKIE
 |--------------------------------------------------------------------------
+|
+| Development:
+|
+| http://localhost:5173
+| http://localhost:5000
+|
+| secure   = false
+| sameSite = lax
+|
+| Production:
+|
+| https://kitedesk.onrender.com
+| https://kitedesk-api.onrender.com
+|
+| secure   = true
+| sameSite = none
+|
 */
+
+const isProduction =
+  env.NODE_ENV ===
+  "production";
+
+const authCookieOptions:
+  CookieOptions = {
+    httpOnly: true,
+
+    secure:
+      isProduction,
+
+    sameSite:
+      isProduction
+        ? "none"
+        : "lax",
+
+    path: "/",
+  };
+
+const AUTH_COOKIE_MAX_AGE =
+  7 *
+  24 *
+  60 *
+  60 *
+  1000;
 
 function setAuthCookie(
   response: Response,
@@ -114,28 +158,10 @@ function setAuthCookie(
     env.AUTH_COOKIE_NAME,
     token,
     {
-      httpOnly: true,
+      ...authCookieOptions,
 
-      secure:
-        env.NODE_ENV ===
-        "production",
-
-      sameSite: "lax",
-
-      /*
-       * 7 days.
-       *
-       * We'll later make this derive
-       * directly from token config.
-       */
       maxAge:
-        7 *
-        24 *
-        60 *
-        60 *
-        1000,
-
-      path: "/",
+        AUTH_COOKIE_MAX_AGE,
     }
   );
 }
@@ -143,19 +169,14 @@ function setAuthCookie(
 function clearAuthCookie(
   response: Response
 ) {
+  /*
+   * Clearing must use the same
+   * cookie scope used when the
+   * cookie was created.
+   */
   response.clearCookie(
     env.AUTH_COOKIE_NAME,
-    {
-      httpOnly: true,
-
-      secure:
-        env.NODE_ENV ===
-        "production",
-
-      sameSite: "lax",
-
-      path: "/",
-    }
+    authCookieOptions
   );
 }
 
@@ -177,7 +198,8 @@ export async function register(
   const existingUser =
     await prisma.user.findUnique({
       where: {
-        email: data.email,
+        email:
+          data.email,
       },
 
       select: {
@@ -199,8 +221,9 @@ export async function register(
     );
 
   /*
-   * User + preferences should either
-   * BOTH succeed or BOTH fail.
+   * User + notification preferences
+   * should either both succeed
+   * or both fail.
    */
   const user =
     await prisma.$transaction(
@@ -208,7 +231,8 @@ export async function register(
         const createdUser =
           await tx.user.create({
             data: {
-              name: data.name,
+              name:
+                data.name,
 
               email:
                 data.email,
@@ -243,7 +267,8 @@ export async function register(
 
   const token =
     createAuthToken({
-      userId: user.id,
+      userId:
+        user.id,
     });
 
   setAuthCookie(
@@ -283,7 +308,8 @@ export async function login(
   const user =
     await prisma.user.findUnique({
       where: {
-        email: data.email,
+        email:
+          data.email,
       },
 
       select: {
@@ -298,8 +324,9 @@ export async function login(
     });
 
   /*
-   * Keep the same message for a
-   * missing user and bad password.
+   * Keep the same error message
+   * for an unknown email and
+   * incorrect password.
    */
   if (!user) {
     throw new AppError(
@@ -315,7 +342,9 @@ export async function login(
       user.passwordHash
     );
 
-  if (!passwordMatches) {
+  if (
+    !passwordMatches
+  ) {
     throw new AppError(
       "Invalid email or password.",
       401,
@@ -325,7 +354,8 @@ export async function login(
 
   const token =
     createAuthToken({
-      userId: user.id,
+      userId:
+        user.id,
     });
 
   setAuthCookie(
@@ -346,7 +376,8 @@ export async function login(
       "Logged in successfully.",
 
     data: {
-      user: safeUser,
+      user:
+        safeUser,
     },
   });
 }
@@ -365,7 +396,8 @@ export async function me(
     success: true,
 
     data: {
-      user: request.user,
+      user:
+        request.user,
     },
   });
 }
