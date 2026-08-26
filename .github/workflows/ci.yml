@@ -1,0 +1,72 @@
+name: KiteDesk CI
+
+on:
+  push:
+    branches:
+      - main
+
+  pull_request:
+    branches:
+      - main
+
+jobs:
+  client:
+    name: Client Build
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: client/package-lock.json
+
+      - name: Install client dependencies
+        working-directory: client
+        run: npm ci
+
+      - name: Lint client
+        working-directory: client
+        run: npm run lint
+
+      - name: Build client
+        working-directory: client
+        run: npm run build
+
+  server:
+    name: Server Build
+    runs-on: ubuntu-latest
+
+    env:
+      DATABASE_URL: postgresql://postgres:postgres@localhost:5432/kitedesk_ci
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: server/package-lock.json
+
+      - name: Install server dependencies
+        working-directory: server
+        run: npm ci
+
+      - name: Generate Prisma client
+        working-directory: server
+        run: npm run prisma:generate
+
+      - name: Typecheck server
+        working-directory: server
+        run: npm run typecheck
+
+      - name: Build server
+        working-directory: server
+        run: npm run build
