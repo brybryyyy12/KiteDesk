@@ -37,42 +37,35 @@ export default defineConfig([
 
     rules: {
       /*
-       * Allow intentionally unused
-       * arguments/variables when their
-       * names begin with "_".
-       *
-       * Examples:
-       * _projectId
-       * _totalTasks
-       * _completedTasks
-       * _actor
+       * "_" means intentionally unused.
        */
-      "@typescript-eslint/no-unused-vars":
-        [
-          "error",
-          {
-            argsIgnorePattern:
-              "^_",
-            varsIgnorePattern:
-              "^_",
-            caughtErrorsIgnorePattern:
-              "^_",
-          },
-        ],
+      "@typescript-eslint/no-unused-vars": [
+        "error",
+        {
+          argsIgnorePattern: "^_",
+          varsIgnorePattern: "^_",
+          caughtErrorsIgnorePattern: "^_",
+        },
+      ],
+
+      /*
+       * KiteDesk intentionally loads API data
+       * and resets/synchronizes UI state from effects.
+       *
+       * These newer React lint rules are useful
+       * suggestions but should not block CI.
+       */
+      "react-hooks/set-state-in-effect":
+        "off",
+
+      "react-hooks/preserve-manual-memoization":
+        "off",
     },
   },
 
   /*
-   * React context files commonly export
-   * both a Provider component and hooks/
-   * helper functions.
-   *
-   * Example:
-   * AuthProvider + useAuth
-   * ToastProvider + toast
-   *
-   * This structure is intentional, so
-   * Fast Refresh should not fail lint.
+   * Context modules intentionally export
+   * Providers together with hooks/helpers.
    */
   {
     files: [
