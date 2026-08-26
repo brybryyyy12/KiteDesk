@@ -13,6 +13,7 @@ import {
 const server =
   app.listen(
     env.PORT,
+    "0.0.0.0",
     () => {
       console.log(
         "================================="
