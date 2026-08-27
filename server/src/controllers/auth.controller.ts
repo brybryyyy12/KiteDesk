@@ -122,6 +122,20 @@ const loginSchema =
 | secure   = true
 | sameSite = none
 |
+| NOTE:
+|
+| We still keep the HTTP-only cookie
+| for browsers that support it.
+|
+| The token is also returned in the
+| JSON response so the frontend can
+| send:
+|
+| Authorization: Bearer <token>
+|
+| This helps browsers that block
+| cross-site cookies.
+|
 */
 
 const isProduction =
@@ -132,9 +146,13 @@ const authCookieOptions:
   CookieOptions = {
     httpOnly: true,
 
-    secure: isProduction,
+    secure:
+      isProduction,
 
-    sameSite: "lax",
+    sameSite:
+      isProduction
+        ? "none"
+        : "lax",
 
     path: "/",
   };
@@ -145,6 +163,12 @@ const AUTH_COOKIE_MAX_AGE =
   60 *
   60 *
   1000;
+
+/*
+|--------------------------------------------------------------------------
+| SET AUTH COOKIE
+|--------------------------------------------------------------------------
+*/
 
 function setAuthCookie(
   response: Response,
@@ -161,6 +185,12 @@ function setAuthCookie(
     }
   );
 }
+
+/*
+|--------------------------------------------------------------------------
+| CLEAR AUTH COOKIE
+|--------------------------------------------------------------------------
+*/
 
 function clearAuthCookie(
   response: Response
@@ -191,6 +221,10 @@ export async function register(
       request.body
     );
 
+  /*
+   * Check whether the email
+   * already belongs to an account.
+   */
   const existingUser =
     await prisma.user.findUnique({
       where: {
@@ -203,7 +237,9 @@ export async function register(
       },
     });
 
-  if (existingUser) {
+  if (
+    existingUser
+  ) {
     throw new AppError(
       "An account with this email already exists.",
       409,
@@ -211,6 +247,9 @@ export async function register(
     );
   }
 
+  /*
+   * Hash password before storing.
+   */
   const passwordHash =
     await hashPassword(
       data.password
@@ -261,17 +300,28 @@ export async function register(
       }
     );
 
+  /*
+   * Create JWT.
+   */
   const token =
     createAuthToken({
       userId:
         user.id,
     });
 
+  /*
+   * Keep cookie authentication
+   * for supported browsers.
+   */
   setAuthCookie(
     response,
     token
   );
 
+  /*
+   * Also return token so the
+   * frontend can use Bearer auth.
+   */
   response
     .status(201)
     .json({
@@ -282,6 +332,8 @@ export async function register(
 
       data: {
         user,
+
+        token,
       },
     });
 }
@@ -301,6 +353,9 @@ export async function login(
       request.body
     );
 
+  /*
+   * Find user by normalized email.
+   */
   const user =
     await prisma.user.findUnique({
       where: {
@@ -324,7 +379,9 @@ export async function login(
    * for an unknown email and
    * incorrect password.
    */
-  if (!user) {
+  if (
+    !user
+  ) {
     throw new AppError(
       "Invalid email or password.",
       401,
@@ -332,6 +389,9 @@ export async function login(
     );
   }
 
+  /*
+   * Verify password.
+   */
   const passwordMatches =
     await comparePassword(
       data.password,
@@ -348,23 +408,41 @@ export async function login(
     );
   }
 
+  /*
+   * Create JWT.
+   */
   const token =
     createAuthToken({
       userId:
         user.id,
     });
 
+  /*
+   * Keep cookie authentication
+   * for browsers that support it.
+   */
   setAuthCookie(
     response,
     token
   );
 
+  /*
+   * Never return passwordHash
+   * to the frontend.
+   */
   const {
     passwordHash:
       _passwordHash,
+
     ...safeUser
   } = user;
 
+  /*
+   * Return both user and token.
+   *
+   * Token is used by the frontend
+   * for Authorization: Bearer ...
+   */
   response.json({
     success: true,
 
@@ -374,6 +452,8 @@ export async function login(
     data: {
       user:
         safeUser,
+
+      token,
     },
   });
 }
@@ -388,6 +468,10 @@ export async function me(
   request: Request,
   response: Response
 ) {
+  /*
+   * requireAuth middleware has
+   * already populated request.user.
+   */
   response.json({
     success: true,
 
@@ -408,6 +492,12 @@ export async function logout(
   _request: Request,
   response: Response
 ) {
+  /*
+   * Remove HTTP-only cookie.
+   *
+   * Frontend will separately remove
+   * its stored Bearer token.
+   */
   clearAuthCookie(
     response
   );

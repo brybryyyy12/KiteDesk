@@ -18,6 +18,66 @@ import type {
   RegisterInput,
 } from "../types/auth";
 
+/*
+|--------------------------------------------------------------------------
+| AUTH TOKEN STORAGE
+|--------------------------------------------------------------------------
+|
+| The backend still uses the HTTP-only
+| cookie when the browser supports it.
+|
+| We also store the JWT so browsers
+| that reject the cross-site cookie
+| can authenticate with:
+|
+| Authorization: Bearer <token>
+|
+*/
+
+export const AUTH_TOKEN_KEY =
+  "kitedesk_auth_token";
+
+/*
+|--------------------------------------------------------------------------
+| SAFE TOKEN STORAGE
+|--------------------------------------------------------------------------
+*/
+
+function saveAuthToken(
+  token: string
+) {
+  try {
+    window.localStorage.setItem(
+      AUTH_TOKEN_KEY,
+      token
+    );
+  } catch (error) {
+    console.warn(
+      "Unable to save authentication token:",
+      error
+    );
+  }
+}
+
+function removeAuthToken() {
+  try {
+    window.localStorage.removeItem(
+      AUTH_TOKEN_KEY
+    );
+  } catch (error) {
+    console.warn(
+      "Unable to remove authentication token:",
+      error
+    );
+  }
+}
+
+/*
+|--------------------------------------------------------------------------
+| CONTEXT TYPE
+|--------------------------------------------------------------------------
+*/
+
 type AuthContextValue = {
   user: AuthUser | null;
 
@@ -56,6 +116,12 @@ type AuthProviderProps = {
   children: ReactNode;
 };
 
+/*
+|--------------------------------------------------------------------------
+| AUTH PROVIDER
+|--------------------------------------------------------------------------
+*/
+
 export function AuthProvider({
   children,
 }: AuthProviderProps) {
@@ -68,17 +134,31 @@ export function AuthProvider({
     >(null);
 
   /*
-   * isLoading means:
-   *
-   * "We don't know yet whether
-   * this browser has a valid
-   * login cookie."
+   * true while we determine whether
+   * the browser currently has a
+   * valid authenticated session.
    */
   const [
     isLoading,
     setIsLoading,
   ] =
     useState(true);
+
+  /*
+  |--------------------------------------------------------------------------
+  | REFRESH USER
+  |--------------------------------------------------------------------------
+  |
+  | apiFetch will send:
+  |
+  | Authorization: Bearer <token>
+  |
+  | when a stored token exists.
+  |
+  | The HTTP-only cookie remains a
+  | backend fallback.
+  |
+  */
 
   const refreshUser =
     useCallback(
@@ -87,14 +167,30 @@ export function AuthProvider({
           const response =
             await authService.me();
 
+          const currentUser =
+            response.data.user;
+
           setUser(
-            response.data.user
+            currentUser
           );
 
-          return response
-            .data.user;
-        } catch {
-          setUser(null);
+          return currentUser;
+        } catch (error) {
+          console.warn(
+            "Unable to refresh authenticated user:",
+            error
+          );
+
+          /*
+           * If the token has become
+           * invalid/expired, clear the
+           * frontend authentication state.
+           */
+          removeAuthToken();
+
+          setUser(
+            null
+          );
 
           return null;
         }
@@ -103,25 +199,34 @@ export function AuthProvider({
     );
 
   /*
-   * Restore login when the app
-   * first loads or refreshes.
-   *
-   * We don't use localStorage
-   * for authentication.
-   *
-   * The server's HTTP-only
-   * cookie is the source of truth.
-   */
+  |--------------------------------------------------------------------------
+  | INITIALIZE AUTH
+  |--------------------------------------------------------------------------
+  |
+  | When the application loads:
+  |
+  | GET /api/auth/me
+  |
+  | apiFetch will attempt Bearer auth.
+  |
+  | If no Bearer token exists, the
+  | backend can still use its cookie.
+  |
+  */
+
   useEffect(
     () => {
-      let active = true;
+      let active =
+        true;
 
       async function initializeAuth() {
         try {
           const response =
             await authService.me();
 
-          if (!active) {
+          if (
+            !active
+          ) {
             return;
           }
 
@@ -129,13 +234,25 @@ export function AuthProvider({
             response.data.user
           );
         } catch {
-          if (!active) {
+          if (
+            !active
+          ) {
             return;
           }
 
-          setUser(null);
+          /*
+           * Stored token may be expired
+           * or invalid.
+           */
+          removeAuthToken();
+
+          setUser(
+            null
+          );
         } finally {
-          if (active) {
+          if (
+            active
+          ) {
             setIsLoading(
               false
             );
@@ -146,11 +263,18 @@ export function AuthProvider({
       void initializeAuth();
 
       return () => {
-        active = false;
+        active =
+          false;
       };
     },
     []
   );
+
+  /*
+  |--------------------------------------------------------------------------
+  | LOGIN
+  |--------------------------------------------------------------------------
+  */
 
   const login =
     useCallback(
@@ -165,6 +289,19 @@ export function AuthProvider({
         const loggedInUser =
           response.data.user;
 
+        const token =
+          response.data.token;
+
+        /*
+         * Store Bearer token so all
+         * following API requests can
+         * authenticate even when the
+         * browser rejects the cookie.
+         */
+        saveAuthToken(
+          token
+        );
+
         setUser(
           loggedInUser
         );
@@ -173,6 +310,12 @@ export function AuthProvider({
       },
       []
     );
+
+  /*
+  |--------------------------------------------------------------------------
+  | REGISTER
+  |--------------------------------------------------------------------------
+  */
 
   const register =
     useCallback(
@@ -187,6 +330,20 @@ export function AuthProvider({
         const registeredUser =
           response.data.user;
 
+        const token =
+          response.data.token;
+
+        /*
+         * IMPORTANT:
+         *
+         * This token will immediately be
+         * available when WorkspaceContext
+         * requests GET /api/workspaces.
+         */
+        saveAuthToken(
+          token
+        );
+
         setUser(
           registeredUser
         );
@@ -196,22 +353,50 @@ export function AuthProvider({
       []
     );
 
+  /*
+  |--------------------------------------------------------------------------
+  | LOGOUT
+  |--------------------------------------------------------------------------
+  */
+
   const logout =
     useCallback(
       async () => {
         try {
-          await authService.logout();
-        } finally {
           /*
-           * Clear frontend state even
-           * if the logout request has
-           * a temporary network error.
+           * The Bearer token is still
+           * available here, therefore
+           * apiFetch can authenticate
+           * this logout request.
            */
-          setUser(null);
+          await authService.logout();
+        } catch (error) {
+          /*
+           * Logout should still clear
+           * frontend authentication even
+           * if the server is temporarily
+           * unavailable.
+           */
+          console.warn(
+            "Server logout request failed:",
+            error
+          );
+        } finally {
+          removeAuthToken();
+
+          setUser(
+            null
+          );
         }
       },
       []
     );
+
+  /*
+  |--------------------------------------------------------------------------
+  | CONTEXT VALUE
+  |--------------------------------------------------------------------------
+  */
 
   const value =
     useMemo<AuthContextValue>(
@@ -252,13 +437,21 @@ export function AuthProvider({
   );
 }
 
+/*
+|--------------------------------------------------------------------------
+| AUTH HOOK
+|--------------------------------------------------------------------------
+*/
+
 export function useAuth() {
   const context =
     useContext(
       AuthContext
     );
 
-  if (!context) {
+  if (
+    !context
+  ) {
     throw new Error(
       "useAuth must be used inside AuthProvider."
     );
