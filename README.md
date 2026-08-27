@@ -82,8 +82,8 @@ github actions
 render
 
 
-IMPROVEMENTS TO BE WORKED ON
-## Roadmap
+
+## IMPROVEMENTS TO BE WORKED ON
 
 ### Production & Reliability
 - [ ] Password recovery
