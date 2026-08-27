@@ -85,6 +85,8 @@ function Topbar({
 
   const {
     workspace,
+    workspaces,
+    selectWorkspace,
   } =
     useWorkspace();
 
@@ -93,6 +95,23 @@ function Topbar({
     logout,
   } =
     useAuth();
+
+  /*
+  |--------------------------------------------------------------------------
+  | WORKSPACE MENU
+  |--------------------------------------------------------------------------
+  */
+
+  const [
+    workspaceMenuOpen,
+    setWorkspaceMenuOpen,
+  ] =
+    useState(false);
+
+  const workspaceMenuRef =
+    useRef<HTMLDivElement | null>(
+      null
+    );
 
   /*
   |--------------------------------------------------------------------------
@@ -157,13 +176,14 @@ function Topbar({
 
   /*
   |--------------------------------------------------------------------------
-  | CLOSE ON OUTSIDE CLICK / ESCAPE
+  | CLOSE MENUS ON OUTSIDE CLICK / ESCAPE
   |--------------------------------------------------------------------------
   */
 
   useEffect(
     () => {
       if (
+        !workspaceMenuOpen &&
         !accountMenuOpen
       ) {
         return;
@@ -184,6 +204,19 @@ function Topbar({
           }
 
           if (
+            workspaceMenuOpen &&
+            !workspaceMenuRef.current
+              ?.contains(
+                target
+              )
+          ) {
+            setWorkspaceMenuOpen(
+              false
+            );
+          }
+
+          if (
+            accountMenuOpen &&
             !accountMenuRef.current
               ?.contains(
                 target
@@ -205,17 +238,23 @@ function Topbar({
             KeyboardEvent
         ) => {
           if (
-            event.key ===
+            event.key !==
             "Escape"
           ) {
-            setAccountMenuOpen(
-              false
-            );
-
-            setMenuError(
-              ""
-            );
+            return;
           }
+
+          setWorkspaceMenuOpen(
+            false
+          );
+
+          setAccountMenuOpen(
+            false
+          );
+
+          setMenuError(
+            ""
+          );
         };
 
       document.addEventListener(
@@ -241,6 +280,7 @@ function Topbar({
       };
     },
     [
+      workspaceMenuOpen,
       accountMenuOpen,
     ]
   );
@@ -250,6 +290,55 @@ function Topbar({
   | NAVIGATION
   |--------------------------------------------------------------------------
   */
+
+  const navigateFromWorkspaceMenu =
+    (
+      path: string
+    ) => {
+      setWorkspaceMenuOpen(
+        false
+      );
+
+      navigate(
+        path
+      );
+    };
+
+  const handleWorkspaceSwitch =
+    (
+      workspaceId: string
+    ) => {
+      if (
+        workspace?.id ===
+        workspaceId
+      ) {
+        setWorkspaceMenuOpen(
+          false
+        );
+
+        return;
+      }
+
+      selectWorkspace(
+        workspaceId
+      );
+
+      setWorkspaceMenuOpen(
+        false
+      );
+
+      /*
+       * A project/task route may belong to
+       * the previously active workspace.
+       *
+       * Returning to Dashboard prevents
+       * stale project IDs from being used
+       * after the workspace changes.
+       */
+      navigate(
+        "/dashboard"
+      );
+    };
 
   const navigateFromMenu =
     (
@@ -369,69 +458,402 @@ function Topbar({
 
         </button>
 
-        {/* COMPACT MOBILE WORKSPACE */}
-        <button
-          type="button"
-          onClick={() =>
-            navigate(
-              "/workspace"
-            )
+        {/* WORKSPACE SWITCHER */}
+        <div
+          ref={
+            workspaceMenuRef
           }
-          aria-label={
-            workspace?.name
-              ? `Open ${workspace.name} workspace`
-              : "Open workspace"
-          }
-          className="grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-kite-blue-wash text-xs font-semibold text-kite-blue-deep transition hover:brightness-95 sm:hidden"
-        >
-          {
-            workspaceInitial
-          }
-        </button>
-
-        {/* WORKSPACE */}
-        <button
-          type="button"
-          onClick={() =>
-            navigate(
-              "/workspace"
-            )
-          }
-          className="hidden min-w-0 max-w-[240px] items-center gap-3 rounded-xl px-2 py-2 text-left transition hover:bg-kite-soft sm:flex"
+          className="relative shrink-0"
         >
 
-          <div className="grid h-9 w-9 shrink-0 place-items-center rounded-xl bg-kite-blue-wash text-xs font-semibold text-kite-blue-deep">
-            {
-              workspaceInitial
+          {/* COMPACT MOBILE WORKSPACE */}
+          <button
+            type="button"
+            onClick={() => {
+              setWorkspaceMenuOpen(
+                (
+                  current
+                ) =>
+                  !current
+              );
+
+              setAccountMenuOpen(
+                false
+              );
+
+              setMenuError(
+                ""
+              );
+            }}
+            aria-label={
+              workspace?.name
+                ? `Switch workspace. Current workspace: ${workspace.name}`
+                : "Choose or create a workspace"
             }
-          </div>
-
-          <div className="min-w-0">
-
-            <p className="max-w-[150px] truncate text-sm font-medium text-kite-ink lg:max-w-[180px]">
-              {workspace?.name ??
-                "Workspace"}
-            </p>
-
-            <p className="mt-0.5 text-[11px] text-kite-muted">
-              {workspace?.role ??
-                "Member"}
-            </p>
-
-          </div>
-
-          <svg
-            viewBox="0 0 24 24"
-            fill="none"
-            stroke="currentColor"
-            strokeWidth="1.8"
-            className="hidden h-4 w-4 shrink-0 text-kite-faint md:block"
-            aria-hidden="true"
+            aria-haspopup="menu"
+            aria-expanded={
+              workspaceMenuOpen
+            }
+            className={`grid h-10 w-10 shrink-0 place-items-center rounded-xl text-xs font-semibold transition sm:hidden ${
+              workspaceMenuOpen
+                ? "bg-kite-blue-deep text-white"
+                : "bg-kite-blue-wash text-kite-blue-deep hover:brightness-95"
+            }`}
           >
-            <path d="m9 10 3 3 3-3" />
-          </svg>
+            {workspace
+              ? workspaceInitial
+              : (
+                <svg
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="1.8"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  className="h-5 w-5"
+                  aria-hidden="true"
+                >
+                  <path d="M12 5v14M5 12h14" />
+                </svg>
+              )}
+          </button>
 
-        </button>
+          {/* DESKTOP / TABLET WORKSPACE */}
+          <button
+            type="button"
+            onClick={() => {
+              setWorkspaceMenuOpen(
+                (
+                  current
+                ) =>
+                  !current
+              );
+
+              setAccountMenuOpen(
+                false
+              );
+
+              setMenuError(
+                ""
+              );
+            }}
+            aria-haspopup="menu"
+            aria-expanded={
+              workspaceMenuOpen
+            }
+            className={`hidden min-w-0 max-w-[260px] items-center gap-3 rounded-xl px-2 py-2 text-left transition sm:flex ${
+              workspaceMenuOpen
+                ? "bg-kite-soft"
+                : "hover:bg-kite-soft"
+            }`}
+          >
+
+            <div className="grid h-9 w-9 shrink-0 place-items-center rounded-xl bg-kite-blue-wash text-xs font-semibold text-kite-blue-deep">
+              {workspace
+                ? workspaceInitial
+                : (
+                  <svg
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth="1.8"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    className="h-4.5 w-4.5"
+                    aria-hidden="true"
+                  >
+                    <path d="M12 5v14M5 12h14" />
+                  </svg>
+                )}
+            </div>
+
+            <div className="min-w-0">
+
+              <p className="max-w-[150px] truncate text-sm font-medium text-kite-ink lg:max-w-[180px]">
+                {workspace?.name ??
+                  "No workspace"}
+              </p>
+
+              <p className="mt-0.5 max-w-[150px] truncate text-[11px] text-kite-muted lg:max-w-[180px]">
+                {workspace?.role ??
+                  "Create or choose one"}
+              </p>
+
+            </div>
+
+            <svg
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="1.8"
+              className={`hidden h-4 w-4 shrink-0 text-kite-faint transition-transform md:block ${
+                workspaceMenuOpen
+                  ? "rotate-180"
+                  : ""
+              }`}
+              aria-hidden="true"
+            >
+              <path d="m9 10 3 3 3-3" />
+            </svg>
+
+          </button>
+
+          {/* WORKSPACE DROPDOWN */}
+          {workspaceMenuOpen && (
+            <div
+              role="menu"
+              className="fixed left-2 right-2 top-[68px] z-[120] overflow-hidden rounded-2xl border border-kite-line bg-white shadow-[0_24px_70px_-28px_rgba(46,51,56,0.45)] sm:absolute sm:left-0 sm:right-auto sm:top-[calc(100%+10px)] sm:w-[330px]"
+            >
+
+              <div className="border-b border-kite-line px-4 py-3">
+
+                <p className="text-sm font-semibold text-kite-ink">
+                  Workspaces
+                </p>
+
+                <p className="mt-0.5 text-[11px] text-kite-muted">
+                  {workspaces.length ===
+                  0
+                    ? "Create your first workspace to start organizing work."
+                    : `${workspaces.length} ${
+                        workspaces.length ===
+                        1
+                          ? "workspace"
+                          : "workspaces"
+                      } available`}
+                </p>
+
+              </div>
+
+              {workspaces.length >
+              0 ? (
+                <div className="max-h-[min(360px,55vh)] overflow-y-auto p-2">
+
+                  {workspaces.map(
+                    (
+                      item
+                    ) => {
+                      const active =
+                        item.id ===
+                        workspace?.id;
+
+                      const initial =
+                        item.name
+                          .slice(
+                            0,
+                            1
+                          )
+                          .toUpperCase() ||
+                        "W";
+
+                      return (
+                        <button
+                          key={
+                            item.id
+                          }
+                          type="button"
+                          role="menuitem"
+                          onClick={() =>
+                            handleWorkspaceSwitch(
+                              item.id
+                            )
+                          }
+                          className={`flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-left transition ${
+                            active
+                              ? "bg-kite-blue-wash"
+                              : "hover:bg-kite-soft"
+                          }`}
+                        >
+
+                          <div
+                            className={`grid h-9 w-9 shrink-0 place-items-center rounded-xl text-xs font-semibold ${
+                              active
+                                ? "bg-white text-kite-blue-deep"
+                                : "bg-kite-soft text-kite-muted"
+                            }`}
+                          >
+                            {
+                              initial
+                            }
+                          </div>
+
+                          <div className="min-w-0 flex-1">
+
+                            <p
+                              className={`truncate text-sm font-medium ${
+                                active
+                                  ? "text-kite-blue-deep"
+                                  : "text-kite-ink"
+                              }`}
+                            >
+                              {
+                                item.name
+                              }
+                            </p>
+
+                            <p className="mt-0.5 truncate text-[11px] text-kite-muted">
+                              {item.role} ·{" "}
+                              {item.projectCount}{" "}
+                              {item.projectCount ===
+                              1
+                                ? "project"
+                                : "projects"}
+                            </p>
+
+                          </div>
+
+                          {active && (
+                            <svg
+                              viewBox="0 0 24 24"
+                              fill="none"
+                              stroke="currentColor"
+                              strokeWidth="2"
+                              strokeLinecap="round"
+                              strokeLinejoin="round"
+                              className="h-4 w-4 shrink-0 text-kite-blue-deep"
+                              aria-label="Active workspace"
+                            >
+                              <path d="m5 12 4 4L19 6" />
+                            </svg>
+                          )}
+
+                        </button>
+                      );
+                    }
+                  )}
+
+                </div>
+              ) : (
+                <div className="px-4 py-6 text-center">
+
+                  <div className="mx-auto grid h-12 w-12 place-items-center rounded-2xl bg-kite-blue-wash text-kite-blue-deep">
+
+                    <svg
+                      viewBox="0 0 24 24"
+                      fill="none"
+                      stroke="currentColor"
+                      strokeWidth="1.7"
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      className="h-6 w-6"
+                      aria-hidden="true"
+                    >
+                      <rect
+                        x="3"
+                        y="5"
+                        width="18"
+                        height="15"
+                        rx="2"
+                      />
+
+                      <path d="M8 5V3h8v2" />
+                    </svg>
+
+                  </div>
+
+                  <p className="mt-3 text-sm font-medium text-kite-ink">
+                    No workspaces yet
+                  </p>
+
+                  <p className="mt-1 text-xs leading-5 text-kite-muted">
+                    Create one when you&apos;re ready to start managing projects and tasks.
+                  </p>
+
+                </div>
+              )}
+
+              <div className="border-t border-kite-line p-2">
+
+                <button
+                  type="button"
+                  role="menuitem"
+                  onClick={() =>
+                    navigateFromWorkspaceMenu(
+                      "/workspace/new"
+                    )
+                  }
+                  className="flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-left transition hover:bg-kite-soft"
+                >
+
+                  <div className="grid h-8 w-8 shrink-0 place-items-center rounded-lg bg-kite-blue-wash text-kite-blue-deep">
+
+                    <svg
+                      viewBox="0 0 24 24"
+                      fill="none"
+                      stroke="currentColor"
+                      strokeWidth="1.8"
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      className="h-4 w-4"
+                      aria-hidden="true"
+                    >
+                      <path d="M12 5v14M5 12h14" />
+                    </svg>
+
+                  </div>
+
+                  <div className="min-w-0">
+
+                    <p className="text-sm font-medium text-kite-ink">
+                      Create Workspace
+                    </p>
+
+                    <p className="mt-0.5 text-[11px] text-kite-muted">
+                      Start a new team space
+                    </p>
+
+                  </div>
+
+                </button>
+
+                <button
+                  type="button"
+                  role="menuitem"
+                  onClick={() =>
+                    navigateFromWorkspaceMenu(
+                      "/workspace"
+                    )
+                  }
+                  className="flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-left transition hover:bg-kite-soft"
+                >
+
+                  <div className="grid h-8 w-8 shrink-0 place-items-center rounded-lg bg-kite-soft text-kite-muted">
+
+                    <svg
+                      viewBox="0 0 24 24"
+                      fill="none"
+                      stroke="currentColor"
+                      strokeWidth="1.7"
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      className="h-4 w-4"
+                      aria-hidden="true"
+                    >
+                      <path d="M4 7h16M4 12h16M4 17h16" />
+                    </svg>
+
+                  </div>
+
+                  <div className="min-w-0">
+
+                    <p className="text-sm font-medium text-kite-ink">
+                      Manage Workspaces
+                    </p>
+
+                    <p className="mt-0.5 text-[11px] text-kite-muted">
+                      View all workspace details
+                    </p>
+
+                  </div>
+
+                </button>
+
+              </div>
+
+            </div>
+          )}
+
+        </div>
 
         {/* SEARCH */}
         <div className="mx-auto hidden min-w-0 w-full max-w-[420px] xl:block">
@@ -493,6 +915,10 @@ function Topbar({
                     current
                   ) =>
                     !current
+                );
+
+                setWorkspaceMenuOpen(
+                  false
                 );
 
                 setMenuError(

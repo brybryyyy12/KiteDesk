@@ -6,6 +6,10 @@ import {
   type FormEvent,
 } from "react";
 
+import {
+  Link,
+} from "react-router";
+
 import { useAuth } from "../../context/AuthContext";
 import {
   useWorkspace,
@@ -158,11 +162,15 @@ function WorkspacePage() {
   const {
     workspace,
 
+    workspaces,
+
     isLoading:
       workspaceLoading,
 
     error:
       workspaceError,
+
+    selectWorkspace,
 
     refreshWorkspaces,
   } =
@@ -1273,12 +1281,126 @@ function WorkspacePage() {
     !workspace
   ) {
     return (
-      <WorkspacePageError
-        message="No active workspace is available."
-        onRetry={() =>
-          void refreshWorkspaces()
-        }
-      />
+      <div className="mx-auto min-w-0 max-w-[1100px]">
+
+        {/* HEADER */}
+        <div className="mb-6 sm:mb-8">
+
+          <p className="text-xs text-kite-muted sm:text-sm">
+            Workspace
+          </p>
+
+          <h1 className="mt-1 text-2xl font-semibold tracking-tight text-kite-ink sm:text-3xl">
+            Your workspaces
+          </h1>
+
+          <p className="mt-2 max-w-2xl text-sm leading-6 text-kite-muted">
+            Workspaces keep your projects, tasks, members, and team activity organized in one place.
+          </p>
+
+        </div>
+
+        {/* EMPTY STATE */}
+        <section className="overflow-hidden rounded-2xl border border-kite-line bg-white shadow-sm">
+
+          <div className="px-5 py-10 text-center sm:px-8 sm:py-14">
+
+            <div className="mx-auto grid h-16 w-16 place-items-center rounded-2xl bg-kite-blue-wash text-kite-blue-deep sm:h-20 sm:w-20">
+
+              <svg
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="1.6"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                className="h-8 w-8 sm:h-9 sm:w-9"
+                aria-hidden="true"
+              >
+                <rect
+                  x="3"
+                  y="5"
+                  width="18"
+                  height="15"
+                  rx="2"
+                />
+
+                <path d="M8 5V3h8v2" />
+
+                <path d="M8 11h8" />
+
+                <path d="M12 8v6" />
+              </svg>
+
+            </div>
+
+            <h2 className="mt-6 text-xl font-semibold tracking-tight text-kite-ink sm:text-2xl">
+              You don&apos;t have a workspace yet
+            </h2>
+
+            <p className="mx-auto mt-3 max-w-lg text-sm leading-6 text-kite-muted">
+              Create a workspace when you&apos;re ready to organize projects, assign tasks, and collaborate with your team.
+            </p>
+
+            <div className="mx-auto mt-7 flex max-w-md flex-col gap-3 sm:flex-row sm:justify-center">
+
+              <Link
+                to="/workspace/new"
+                className="flex min-h-11 items-center justify-center gap-2 rounded-xl bg-kite-blue-deep px-5 py-3 text-sm font-semibold text-white shadow-sm transition hover:brightness-95"
+              >
+                <svg
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="1.8"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  className="h-4 w-4"
+                  aria-hidden="true"
+                >
+                  <path d="M12 5v14M5 12h14" />
+                </svg>
+
+                Create Workspace
+              </Link>
+
+              <Link
+                to="/dashboard"
+                className="flex min-h-11 items-center justify-center rounded-xl border border-kite-line bg-white px-5 py-3 text-sm font-medium text-kite-muted transition hover:bg-kite-soft hover:text-kite-ink"
+              >
+                Back to Dashboard
+              </Link>
+
+            </div>
+
+          </div>
+
+          <div className="border-t border-kite-line bg-kite-soft/60 px-5 py-5 sm:px-8">
+
+            <div className="grid gap-3 sm:grid-cols-3">
+
+              <WorkspaceEmptyFeature
+                title="Organize projects"
+                description="Keep related work together."
+              />
+
+              <WorkspaceEmptyFeature
+                title="Manage your team"
+                description="Invite members and assign roles."
+              />
+
+              <WorkspaceEmptyFeature
+                title="Track work"
+                description="Manage tasks and progress."
+              />
+
+            </div>
+
+          </div>
+
+        </section>
+
+      </div>
     );
   }
 
@@ -1295,14 +1417,209 @@ function WorkspacePage() {
               Workspace
             </p>
 
-            <h1 className="break-words text-2xl font-semibold tracking-tight text-kite-ink sm:text-3xl">
-              {
-                workspace.name
-              }
+            <h1 className="text-2xl font-semibold tracking-tight text-kite-ink sm:text-3xl">
+              Your workspaces
             </h1>
 
             <p className="mt-2 max-w-2xl text-sm leading-6 text-kite-muted">
-              Manage your workspace, members, and team access.
+              Switch between the teams you belong to or create another workspace for a different group of projects.
+            </p>
+
+          </div>
+
+          <Link
+            to="/workspace/new"
+            className="flex w-full items-center justify-center gap-2 rounded-xl bg-kite-blue-deep px-4 py-3 text-sm font-medium text-white shadow-sm transition hover:brightness-95 sm:w-fit sm:hover:-translate-y-[1px]"
+          >
+
+            <svg
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="1.8"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              className="h-5 w-5"
+              aria-hidden="true"
+            >
+              <path d="M12 5v14M5 12h14" />
+            </svg>
+
+            Create Workspace
+
+          </Link>
+
+        </div>
+
+        {/* WORKSPACE LIST */}
+        <section className="mb-5 overflow-hidden rounded-2xl border border-kite-line bg-white">
+
+          <div className="border-b border-kite-line px-4 py-4 sm:px-6">
+
+            <div className="flex flex-col gap-1 sm:flex-row sm:items-center sm:justify-between">
+
+              <div>
+
+                <h2 className="font-semibold text-kite-ink">
+                  All Workspaces
+                </h2>
+
+                <p className="mt-1 text-sm leading-6 text-kite-muted">
+                  You belong to {workspaces.length} {workspaces.length === 1 ? "workspace" : "workspaces"}.
+                </p>
+
+              </div>
+
+              <p className="text-xs text-kite-faint">
+                Your active workspace is used across projects and tasks.
+              </p>
+
+            </div>
+
+          </div>
+
+          <div className="grid gap-3 p-4 sm:grid-cols-2 sm:p-6 xl:grid-cols-3">
+
+            {workspaces.map(
+              (
+                item
+              ) => {
+                const active =
+                  item.id ===
+                  workspace.id;
+
+                return (
+                  <article
+                    key={
+                      item.id
+                    }
+                    className={`relative overflow-hidden rounded-2xl border p-4 transition sm:p-5 ${
+                      active
+                        ? "border-kite-blue bg-kite-blue-wash/40"
+                        : "border-kite-line bg-white hover:bg-kite-soft/50"
+                    }`}
+                  >
+
+                    <div className="flex items-start gap-3">
+
+                      <div
+                        className={`grid h-11 w-11 shrink-0 place-items-center rounded-xl text-sm font-semibold ${
+                          active
+                            ? "bg-white text-kite-blue-deep"
+                            : "bg-kite-soft text-kite-ink"
+                        }`}
+                      >
+                        {item.name
+                          .charAt(
+                            0
+                          )
+                          .toUpperCase()}
+                      </div>
+
+                      <div className="min-w-0 flex-1">
+
+                        <div className="flex min-w-0 items-start justify-between gap-2">
+
+                          <div className="min-w-0">
+
+                            <h3 className="truncate text-sm font-semibold text-kite-ink">
+                              {
+                                item.name
+                              }
+                            </h3>
+
+                            <p className="mt-1 text-xs text-kite-muted">
+                              {
+                                item.role
+                              }
+                            </p>
+
+                          </div>
+
+                          {active && (
+                            <span className="shrink-0 rounded-full bg-white px-2.5 py-1 text-[10px] font-semibold text-kite-blue-deep shadow-sm">
+                              Active
+                            </span>
+                          )}
+
+                        </div>
+
+                        <div className="mt-4 flex flex-wrap gap-x-4 gap-y-1 text-xs text-kite-muted">
+
+                          <span>
+                            {item.memberCount}{" "}
+                            {item.memberCount ===
+                            1
+                              ? "member"
+                              : "members"}
+                          </span>
+
+                          <span>
+                            {item.projectCount}{" "}
+                            {item.projectCount ===
+                            1
+                              ? "project"
+                              : "projects"}
+                          </span>
+
+                        </div>
+
+                      </div>
+
+                    </div>
+
+                    <div className="mt-4 border-t border-kite-line/80 pt-4">
+
+                      {active ? (
+                        <button
+                          type="button"
+                          disabled
+                          className="w-full cursor-default rounded-xl border border-kite-line bg-white px-4 py-2.5 text-xs font-medium text-kite-muted"
+                        >
+                          Current Workspace
+                        </button>
+                      ) : (
+                        <button
+                          type="button"
+                          onClick={() =>
+                            selectWorkspace(
+                              item.id
+                            )
+                          }
+                          className="w-full rounded-xl border border-kite-line bg-white px-4 py-2.5 text-xs font-medium text-kite-ink transition hover:border-kite-blue hover:bg-kite-blue-wash hover:text-kite-blue-deep"
+                        >
+                          Switch Workspace
+                        </button>
+                      )}
+
+                    </div>
+
+                  </article>
+                );
+              }
+            )}
+
+          </div>
+
+        </section>
+
+        {/* ACTIVE WORKSPACE HEADER */}
+        <div className="mb-5 flex flex-col justify-between gap-4 rounded-2xl border border-kite-line bg-white p-4 sm:flex-row sm:items-center sm:p-6">
+
+          <div className="min-w-0">
+
+            <p className="text-xs font-medium uppercase tracking-wide text-kite-faint">
+              Active workspace
+            </p>
+
+            <h2 className="mt-1 break-words text-xl font-semibold tracking-tight text-kite-ink">
+              {
+                workspace.name
+              }
+            </h2>
+
+            <p className="mt-1 text-sm leading-6 text-kite-muted">
+              Manage this workspace, its members, and team access below.
             </p>
 
           </div>
@@ -1313,7 +1630,7 @@ function WorkspacePage() {
               onClick={
                 openInviteModal
               }
-              className="flex w-full items-center justify-center gap-2 rounded-xl bg-kite-blue-deep px-4 py-3 text-sm font-medium text-white shadow-sm transition hover:brightness-95 sm:w-fit sm:hover:-translate-y-[1px]"
+              className="flex w-full shrink-0 items-center justify-center gap-2 rounded-xl border border-kite-line bg-white px-4 py-3 text-sm font-medium text-kite-ink transition hover:bg-kite-soft sm:w-fit"
             >
 
               <svg
@@ -1321,6 +1638,8 @@ function WorkspacePage() {
                 fill="none"
                 stroke="currentColor"
                 strokeWidth="1.8"
+                strokeLinecap="round"
+                strokeLinejoin="round"
                 className="h-5 w-5"
                 aria-hidden="true"
               >
@@ -2626,6 +2945,47 @@ function WorkspacePageError({
         </button>
 
       </section>
+
+    </div>
+  );
+}
+
+
+/*
+|--------------------------------------------------------------------------
+| EMPTY WORKSPACE FEATURE
+|--------------------------------------------------------------------------
+*/
+
+function WorkspaceEmptyFeature({
+  title,
+  description,
+}: {
+  title: string;
+  description: string;
+}) {
+  return (
+    <div className="rounded-xl border border-kite-line bg-white p-4">
+
+      <div className="flex items-start gap-3">
+
+        <div className="mt-0.5 grid h-7 w-7 shrink-0 place-items-center rounded-lg bg-kite-blue-wash text-xs font-semibold text-kite-blue-deep">
+          ✓
+        </div>
+
+        <div className="min-w-0">
+
+          <p className="text-sm font-medium text-kite-ink">
+            {title}
+          </p>
+
+          <p className="mt-1 text-xs leading-5 text-kite-muted">
+            {description}
+          </p>
+
+        </div>
+
+      </div>
 
     </div>
   );

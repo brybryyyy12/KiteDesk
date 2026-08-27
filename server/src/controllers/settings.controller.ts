@@ -118,16 +118,28 @@ const changePasswordSchema =
           "Current password is required."
         ),
 
-      newPassword: z
-        .string()
-        .min(
-          8,
-          "New password must contain at least 8 characters."
-        )
-        .max(
-          128,
-          "New password is too long."
-        ),
+    newPassword: z
+    .string()
+    .min(
+      8,
+      "New password must contain at least 8 characters."
+    )
+    .max(
+      128,
+      "New password is too long."
+    )
+    .regex(
+      /[A-Z]/,
+      "New password must contain at least one uppercase letter."
+    )
+    .regex(
+      /[a-z]/,
+      "New password must contain at least one lowercase letter."
+    )
+    .regex(
+      /[0-9]/,
+      "New password must contain at least one number."
+    ),
     })
     .refine(
       (data) =>

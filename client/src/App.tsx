@@ -63,11 +63,10 @@ function App() {
 
       {/* INVITATION
           ---------------------------------------------------------------
-          This route is intentionally outside RequireAuth and
-          RequireWorkspace.
+          Invitation is public.
 
-          An invited person must be able to view the invitation before
-          logging in or joining the workspace.
+          Someone must be able to open an invitation before signing in
+          or creating an account.
       */}
 
       <Route
@@ -97,7 +96,14 @@ function App() {
         }
       />
 
-      {/* ONBOARDING */}
+      {/* FIRST WORKSPACE ONBOARDING
+          ---------------------------------------------------------------
+          This route is only for users who do not yet have a workspace.
+
+          They may:
+          - create their first workspace
+          - skip onboarding
+      */}
 
       <Route
         path="/onboarding/workspace"
@@ -110,19 +116,49 @@ function App() {
         }
       />
 
-      {/* APPLICATION */}
+      {/* CREATE ANOTHER WORKSPACE
+          ---------------------------------------------------------------
+          Existing users may create additional workspaces here.
+
+          IMPORTANT:
+          Do not use WorkspaceOnboardingGuard here because that guard
+          intentionally redirects users who already have a workspace.
+      */}
+
+      <Route
+        path="/workspace/new"
+        element={
+          <RequireAuth>
+            <CreateWorkspacePage />
+          </RequireAuth>
+        }
+      />
+
+      {/* APPLICATION
+          ---------------------------------------------------------------
+          Authentication is required for the application shell.
+
+          A workspace is NOT globally required anymore.
+
+          This allows a newly registered user to skip workspace creation
+          and still enter KiteDesk.
+      */}
 
       <Route
         element={
           <RequireAuth>
-            <RequireWorkspace>
-              <AppLayout />
-            </RequireWorkspace>
+            <AppLayout />
           </RequireAuth>
         }
       >
 
-        {/* DASHBOARD */}
+        {/* DASHBOARD
+            -------------------------------------------------------------
+            Workspace optional.
+
+            Users who skipped onboarding must still be able to reach
+            their dashboard.
+        */}
 
         <Route
           path="/dashboard"
@@ -131,7 +167,13 @@ function App() {
           }
         />
 
-        {/* MY TASKS */}
+        {/* MY TASKS
+            -------------------------------------------------------------
+            Workspace optional.
+
+            With no active workspace, this page should eventually show
+            an empty state instead of redirecting.
+        */}
 
         <Route
           path="/my-tasks"
@@ -140,7 +182,11 @@ function App() {
           }
         />
 
-        {/* NOTIFICATIONS */}
+        {/* NOTIFICATIONS
+            -------------------------------------------------------------
+            Notifications belong to the user, so a workspace should not
+            be required just to open this page.
+        */}
 
         <Route
           path="/notifications"
@@ -149,34 +195,16 @@ function App() {
           }
         />
 
-        {/* PROJECTS */}
+        {/* WORKSPACE
+            -------------------------------------------------------------
+            Workspace optional.
 
-        <Route
-          path="/projects"
-          element={
-            <ProjectsPage />
-          }
-        />
-
-        {/* TASK DETAILS */}
-
-        <Route
-          path="/projects/:projectId/tasks/:taskId"
-          element={
-            <TaskDetailsPage />
-          }
-        />
-
-        {/* PROJECT DETAILS */}
-
-        <Route
-          path="/projects/:projectId/*"
-          element={
-            <ProjectDetailsPage />
-          }
-        />
-
-        {/* WORKSPACE */}
+            This will become the workspace management page where the
+            user can:
+            - see all workspaces
+            - select one
+            - create another
+        */}
 
         <Route
           path="/workspace"
@@ -185,7 +213,11 @@ function App() {
           }
         />
 
-        {/* SETTINGS */}
+        {/* SETTINGS
+            -------------------------------------------------------------
+            Account settings should remain available even when the user
+            does not belong to a workspace.
+        */}
 
         <Route
           path="/settings"
@@ -194,14 +226,53 @@ function App() {
           }
         />
 
+        {/* PROJECTS
+            -------------------------------------------------------------
+            Projects require an active workspace.
+        */}
+
+        <Route
+          path="/projects"
+          element={
+            <RequireWorkspace>
+              <ProjectsPage />
+            </RequireWorkspace>
+          }
+        />
+
+        {/* TASK DETAILS
+            -------------------------------------------------------------
+            A task always belongs to a project/workspace.
+        */}
+
+        <Route
+          path="/projects/:projectId/tasks/:taskId"
+          element={
+            <RequireWorkspace>
+              <TaskDetailsPage />
+            </RequireWorkspace>
+          }
+        />
+
+        {/* PROJECT DETAILS
+            -------------------------------------------------------------
+            Project routes require an active workspace.
+        */}
+
+        <Route
+          path="/projects/:projectId/*"
+          element={
+            <RequireWorkspace>
+              <ProjectDetailsPage />
+            </RequireWorkspace>
+          }
+        />
+
       </Route>
 
       {/* NOT FOUND
           ---------------------------------------------------------------
-          Never silently redirect an unknown URL.
-
-          Showing a real 404 makes broken links, typos, and deleted
-          resources easier for the user to understand.
+          Unknown URLs should display the actual 404 page.
       */}
 
       <Route

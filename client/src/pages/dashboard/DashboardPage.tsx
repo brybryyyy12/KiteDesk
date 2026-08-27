@@ -35,40 +35,6 @@ import {
 
 /*
 |--------------------------------------------------------------------------
-| MOBILE DASHBOARD SECTIONS
-|--------------------------------------------------------------------------
-*/
-
-type MobileDashboardSection =
-  | "tasks"
-  | "projects"
-  | "activity"
-  | "deadlines";
-
-const mobileDashboardSections: {
-  id: MobileDashboardSection;
-  label: string;
-}[] = [
-  {
-    id: "tasks",
-    label: "Tasks",
-  },
-  {
-    id: "projects",
-    label: "Projects",
-  },
-  {
-    id: "activity",
-    label: "Activity",
-  },
-  {
-    id: "deadlines",
-    label: "Deadlines",
-  },
-];
-
-/*
-|--------------------------------------------------------------------------
 | DASHBOARD
 |--------------------------------------------------------------------------
 */
@@ -77,16 +43,13 @@ function DashboardPage() {
   const navigate =
     useNavigate();
 
-  const [
-    mobileSection,
-    setMobileSection,
-  ] =
-    useState<MobileDashboardSection>(
-      "tasks"
-    );
-
   const {
     workspace,
+    isLoading:
+      workspaceLoading,
+    error:
+      workspaceError,
+    refreshWorkspaces,
   } =
     useWorkspace();
 
@@ -105,7 +68,6 @@ function DashboardPage() {
       projectsLoading,
     error:
       projectsError,
-    refreshProjects,
   } =
     useProjects();
 
@@ -117,7 +79,6 @@ function DashboardPage() {
       tasksLoading,
     error:
       tasksError,
-    refreshTasks,
   } =
     useTasks();
 
@@ -146,12 +107,6 @@ function DashboardPage() {
     setActivityError,
   ] =
     useState("");
-
-  const [
-    dashboardRetrying,
-    setDashboardRetrying,
-  ] =
-    useState(false);
 
   const refreshActivity =
     useCallback(
@@ -228,65 +183,6 @@ function DashboardPage() {
       refreshActivity,
     ]
   );
-
-  /*
-  |--------------------------------------------------------------------------
-  | RETRY DASHBOARD DATA
-  |--------------------------------------------------------------------------
-  */
-
-  const retryDashboardData =
-    useCallback(
-      async () => {
-        if (
-          dashboardRetrying
-        ) {
-          return;
-        }
-
-        setDashboardRetrying(
-          true
-        );
-
-        try {
-          /*
-           * If projects failed, retry them first.
-           *
-           * TaskContext watches the project list,
-           * so a successful project refresh will
-           * trigger the correct task reload.
-           */
-          if (
-            projectsError
-          ) {
-            await refreshProjects();
-          } else if (
-            tasksError
-          ) {
-            await refreshTasks();
-          } else {
-            await Promise.all([
-              refreshProjects(),
-              refreshTasks(),
-            ]);
-          }
-
-          await refreshActivity();
-        } finally {
-          setDashboardRetrying(
-            false
-          );
-        }
-      },
-      [
-        dashboardRetrying,
-        projectsError,
-        tasksError,
-        refreshProjects,
-        refreshTasks,
-        refreshActivity,
-      ]
-    );
 
   /*
   |--------------------------------------------------------------------------
@@ -592,6 +488,7 @@ function DashboardPage() {
 
   const loading =
     authLoading ||
+    workspaceLoading ||
     !projectsLoaded ||
     projectsLoading ||
     !tasksLoaded ||
@@ -653,56 +550,34 @@ function DashboardPage() {
         ""
     );
 
-  const loadError =
-    projectsError ||
-    tasksError;
+  /*
+  |--------------------------------------------------------------------------
+  | WORKSPACE LOAD ERROR
+  |--------------------------------------------------------------------------
+  |
+  | A failed workspace request is different from having zero workspaces.
+  | Do not show the empty state when the API itself failed.
+  |
+  */
 
-  const hasFatalDataError =
-    (
-      Boolean(
-        projectsError
-      ) &&
-      projects.length ===
-        0
-    ) ||
-    (
-      Boolean(
-        tasksError
-      ) &&
-      projects.length >
-        0 &&
-      tasks.length ===
-        0
-    );
-
-  if (
-    hasFatalDataError
-  ) {
+  if (workspaceError) {
     return (
       <div className="mx-auto max-w-[1500px]">
 
         <div className="mb-7">
 
-          <p className="text-xs text-kite-muted sm:text-sm">
-            {
-              workspace?.name
-            }
-          </p>
-
-          <h1 className="mt-1 text-2xl font-semibold tracking-tight text-kite-ink sm:text-3xl">
+          <h1 className="text-2xl font-semibold tracking-tight text-kite-ink sm:text-3xl">
             {greeting},{" "}
             {firstName}
           </h1>
 
           <p className="mt-2 text-sm text-kite-muted">
-            Here&apos;s what&apos;s
-            happening with your work
-            today.
+            Welcome back to KiteDesk.
           </p>
 
         </div>
 
-        <section className="rounded-2xl border border-kite-line bg-white px-6 py-16 text-center">
+        <section className="rounded-2xl border border-kite-line bg-white px-5 py-12 text-center sm:px-8 sm:py-16">
 
           <div className="mx-auto grid h-16 w-16 place-items-center rounded-2xl bg-red-50 text-red-500">
 
@@ -730,27 +605,21 @@ function DashboardPage() {
           </div>
 
           <h2 className="mt-5 text-xl font-semibold tracking-tight text-kite-ink">
-            Couldn&apos;t load your dashboard
+            Unable to load your workspace
           </h2>
 
           <p className="mx-auto mt-2 max-w-md text-sm leading-6 text-kite-muted">
-            {loadError ||
-              "KiteDesk couldn't load the data needed for this dashboard."}
+            {workspaceError}
           </p>
 
           <button
             type="button"
-            disabled={
-              dashboardRetrying
-            }
             onClick={() =>
-              void retryDashboardData()
+              void refreshWorkspaces()
             }
-            className="mt-6 rounded-xl bg-kite-blue-deep px-5 py-3 text-sm font-medium text-white transition hover:brightness-95 disabled:cursor-not-allowed disabled:opacity-60"
+            className="mt-6 rounded-xl bg-kite-blue-deep px-5 py-3 text-sm font-medium text-white shadow-sm transition hover:brightness-95"
           >
-            {dashboardRetrying
-              ? "Trying again..."
-              : "Try Again"}
+            Try Again
           </button>
 
         </section>
@@ -758,6 +627,145 @@ function DashboardPage() {
       </div>
     );
   }
+
+  /*
+  |--------------------------------------------------------------------------
+  | NO WORKSPACE
+  |--------------------------------------------------------------------------
+  |
+  | A workspace is optional after registration.
+  | Users who skipped onboarding should see a deliberate getting-started
+  | state instead of an empty normal dashboard.
+  |
+  */
+
+  if (!workspace) {
+    return (
+      <div className="mx-auto max-w-[1200px]">
+
+        {/* HEADER */}
+        <div className="mb-7">
+
+          <p className="text-sm text-kite-muted">
+            KiteDesk
+          </p>
+
+          <h1 className="mt-1 text-2xl font-semibold tracking-tight text-kite-ink sm:text-3xl">
+            {greeting},{" "}
+            {firstName}
+          </h1>
+
+          <p className="mt-2 text-sm leading-6 text-kite-muted">
+            Your account is ready. Create a workspace whenever you&apos;re ready to start organizing work.
+          </p>
+
+        </div>
+
+        {/* GET STARTED */}
+        <section className="overflow-hidden rounded-2xl border border-kite-line bg-white shadow-sm">
+
+          <div className="px-5 py-10 text-center sm:px-8 sm:py-14">
+
+            <div className="mx-auto grid h-16 w-16 place-items-center rounded-2xl bg-kite-blue-wash text-kite-blue-deep sm:h-20 sm:w-20">
+
+              <svg
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="1.6"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                className="h-8 w-8 sm:h-9 sm:w-9"
+                aria-hidden="true"
+              >
+                <rect
+                  x="3"
+                  y="5"
+                  width="18"
+                  height="15"
+                  rx="2"
+                />
+
+                <path d="M8 5V3h8v2" />
+
+                <path d="M12 10v6M9 13h6" />
+              </svg>
+
+            </div>
+
+            <h2 className="mt-6 text-xl font-semibold tracking-tight text-kite-ink sm:text-2xl">
+              You aren&apos;t part of a workspace yet
+            </h2>
+
+            <p className="mx-auto mt-3 max-w-xl text-sm leading-6 text-kite-muted">
+              Workspaces are where your projects, tasks, members, and team activity live. You can create one now or come back to this later.
+            </p>
+
+            <div className="mt-7 flex justify-center">
+
+              <button
+                type="button"
+                onClick={() =>
+                  navigate(
+                    "/workspace/new"
+                  )
+                }
+                className="inline-flex min-h-11 items-center justify-center gap-2 rounded-xl bg-kite-blue-deep px-5 py-3 text-sm font-semibold text-white shadow-sm transition hover:brightness-95"
+              >
+
+                <svg
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="1.8"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  className="h-4 w-4"
+                  aria-hidden="true"
+                >
+                  <path d="M12 5v14M5 12h14" />
+                </svg>
+
+                Create Workspace
+
+              </button>
+
+            </div>
+
+          </div>
+
+          <div className="border-t border-kite-line bg-kite-soft/60 px-5 py-5 sm:px-8">
+
+            <div className="grid gap-3 sm:grid-cols-3">
+
+              <DashboardGettingStartedCard
+                title="Create projects"
+                description="Organize work into focused projects."
+              />
+
+              <DashboardGettingStartedCard
+                title="Invite your team"
+                description="Add teammates and manage their roles."
+              />
+
+              <DashboardGettingStartedCard
+                title="Track tasks"
+                description="Assign work and follow its progress."
+              />
+
+            </div>
+
+          </div>
+
+        </section>
+
+      </div>
+    );
+  }
+
+  const loadError =
+    tasksError ||
+    projectsError;
 
   return (
     <div className="mx-auto max-w-[1500px]">
@@ -784,44 +792,21 @@ function DashboardPage() {
 
       </div>
 
-      {/* PARTIAL LOAD ERROR */}
+      {/* LOAD ERROR */}
       {loadError && (
-        <div className="mb-5 flex flex-col gap-3 rounded-xl border border-amber-100 bg-amber-50 px-4 py-3 sm:flex-row sm:items-center sm:justify-between">
+        <div className="mb-5 rounded-xl border border-red-100 bg-red-50 px-4 py-3">
 
-          <div>
-
-            <p className="text-sm font-medium text-amber-800">
-              Some dashboard data may be incomplete.
-            </p>
-
-            <p className="mt-1 text-xs leading-5 text-amber-700">
-              {
-                loadError
-              }
-            </p>
-
-          </div>
-
-          <button
-            type="button"
-            disabled={
-              dashboardRetrying
+          <p className="text-sm text-red-600">
+            {
+              loadError
             }
-            onClick={() =>
-              void retryDashboardData()
-            }
-            className="shrink-0 rounded-lg border border-amber-200 bg-white px-3 py-2 text-xs font-medium text-amber-800 transition hover:bg-amber-50 disabled:cursor-not-allowed disabled:opacity-50"
-          >
-            {dashboardRetrying
-              ? "Retrying..."
-              : "Try Again"}
-          </button>
+          </p>
 
         </div>
       )}
 
       {/* STATS */}
-      <section className="grid grid-cols-2 gap-3 sm:gap-4 xl:grid-cols-4">
+      <section className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
 
         <DashboardStat
           label="My Tasks"
@@ -861,71 +846,11 @@ function DashboardPage() {
 
       </section>
 
-      {/* MOBILE / TABLET DASHBOARD SWITCHER */}
-      <section className="mt-5 xl:hidden">
-
-        <div className="grid grid-cols-4 gap-1 rounded-2xl border border-kite-line bg-white p-1.5">
-
-          {mobileDashboardSections.map(
-            (
-              section
-            ) => {
-              const active =
-                mobileSection ===
-                section.id;
-
-              return (
-                <button
-                  key={
-                    section.id
-                  }
-                  type="button"
-                  aria-pressed={
-                    active
-                  }
-                  onClick={() =>
-                    setMobileSection(
-                      section.id
-                    )
-                  }
-                  className={`min-w-0 rounded-xl px-1 py-2.5 text-[11px] font-medium transition sm:px-3 sm:text-xs ${
-                    active
-                      ? "bg-kite-blue-wash text-kite-blue-deep"
-                      : "text-kite-muted hover:bg-kite-soft hover:text-kite-ink"
-                  }`}
-                >
-                  <span className="block truncate">
-                    {
-                      section.label
-                    }
-                  </span>
-                </button>
-              );
-            }
-          )}
-
-        </div>
-
-        <p className="mt-2 px-1 text-[11px] text-kite-faint">
-          Choose a section to keep the dashboard compact on smaller screens.
-        </p>
-
-      </section>
-
-      {/* DASHBOARD PANELS */}
+      {/* FIRST ROW */}
       <div className="mt-5 grid gap-5 xl:grid-cols-[1.15fr_0.85fr]">
 
         {/* RECENT TASKS */}
-        <div
-          className={`min-w-0 ${
-            mobileSection ===
-            "tasks"
-              ? "block"
-              : "hidden"
-          } xl:block`}
-        >
-
-          <DashboardCard
+        <DashboardCard
           title="Recent Tasks"
           description="Your current assignments."
           actionLabel="View all"
@@ -1040,21 +965,10 @@ function DashboardPage() {
             </div>
           )}
 
-          </DashboardCard>
-
-        </div>
+        </DashboardCard>
 
         {/* PROJECTS */}
-        <div
-          className={`min-w-0 ${
-            mobileSection ===
-            "projects"
-              ? "block"
-              : "hidden"
-          } xl:block`}
-        >
-
-          <DashboardCard
+        <DashboardCard
           title="Projects Overview"
           description="Progress across your workspace."
           actionLabel="View projects"
@@ -1069,12 +983,7 @@ function DashboardPage() {
           0 ? (
             <EmptyMessage
               title="No projects yet"
-              text={
-                workspace?.role ===
-                "Member"
-                  ? "Projects you can access will appear here."
-                  : "Create a project to start organizing work."
-              }
+              text="Create a project to start organizing work."
             />
           ) : (
             <div className="space-y-5 py-5">
@@ -1172,21 +1081,15 @@ function DashboardPage() {
             </div>
           )}
 
-          </DashboardCard>
+        </DashboardCard>
 
-        </div>
+      </div>
+
+      {/* SECOND ROW */}
+      <div className="mt-5 grid gap-5 xl:grid-cols-[1.15fr_0.85fr]">
 
         {/* ACTIVITY */}
-        <div
-          className={`min-w-0 ${
-            mobileSection ===
-            "activity"
-              ? "block"
-              : "hidden"
-          } xl:block`}
-        >
-
-          <DashboardCard
+        <DashboardCard
           title="Recent Activity"
           description="Latest updates across your workspace."
         >
@@ -1321,21 +1224,10 @@ function DashboardPage() {
             </div>
           )}
 
-          </DashboardCard>
-
-        </div>
+        </DashboardCard>
 
         {/* DEADLINES */}
-        <div
-          className={`min-w-0 ${
-            mobileSection ===
-            "deadlines"
-              ? "block"
-              : "hidden"
-          } xl:block`}
-        >
-
-          <DashboardCard
+        <DashboardCard
           title="Upcoming Deadlines"
           description="Your nearest task deadlines."
           actionLabel="My Tasks"
@@ -1408,9 +1300,7 @@ function DashboardPage() {
             </div>
           )}
 
-          </DashboardCard>
-
-        </div>
+        </DashboardCard>
 
       </div>
 
@@ -1449,7 +1339,7 @@ function DashboardCard({
   return (
     <section className="rounded-2xl border border-kite-line bg-white">
 
-      <div className="flex items-start justify-between gap-3 border-b border-kite-line px-4 py-4 sm:items-center sm:px-6">
+      <div className="flex items-center justify-between gap-4 border-b border-kite-line px-5 py-4 sm:px-6">
 
         <div>
 
@@ -1484,7 +1374,7 @@ function DashboardCard({
 
       </div>
 
-      <div className="px-4 sm:px-6">
+      <div className="px-5 sm:px-6">
         {
           children
         }
@@ -1522,11 +1412,11 @@ function DashboardStat({
     | "done";
 }) {
   return (
-    <div className="rounded-2xl border border-kite-line bg-white p-4 sm:p-5">
+    <div className="rounded-2xl border border-kite-line bg-white p-5">
 
-      <div className="flex items-center gap-3 sm:gap-4">
+      <div className="flex items-center gap-4">
 
-        <div className="grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-kite-blue-wash text-kite-blue-deep sm:h-11 sm:w-11">
+        <div className="grid h-11 w-11 shrink-0 place-items-center rounded-xl bg-kite-blue-wash text-kite-blue-deep">
 
           <StatIcon
             icon={
@@ -1544,13 +1434,13 @@ function DashboardStat({
             }
           </p>
 
-          <p className="mt-1 text-xl font-semibold tracking-tight text-kite-ink sm:text-2xl">
+          <p className="mt-1 text-2xl font-semibold tracking-tight text-kite-ink">
             {
               value
             }
           </p>
 
-          <p className="mt-1 hidden text-xs text-kite-faint sm:block">
+          <p className="mt-1 text-xs text-kite-faint">
             {
               helper
             }
@@ -1999,6 +1889,49 @@ function formatRelativeTime(
       day:
         "numeric",
     }
+  );
+}
+
+/*
+|--------------------------------------------------------------------------
+| GETTING STARTED CARD
+|--------------------------------------------------------------------------
+*/
+
+function DashboardGettingStartedCard({
+  title,
+  description,
+}: {
+  title:
+    string;
+
+  description:
+    string;
+}) {
+  return (
+    <div className="rounded-xl border border-kite-line bg-white p-4 text-left">
+
+      <div className="flex items-start gap-3">
+
+        <div className="mt-0.5 grid h-7 w-7 shrink-0 place-items-center rounded-lg bg-kite-blue-wash text-xs font-semibold text-kite-blue-deep">
+          ✓
+        </div>
+
+        <div className="min-w-0">
+
+          <p className="text-sm font-medium text-kite-ink">
+            {title}
+          </p>
+
+          <p className="mt-1 text-xs leading-5 text-kite-muted">
+            {description}
+          </p>
+
+        </div>
+
+      </div>
+
+    </div>
   );
 }
 

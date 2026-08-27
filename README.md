@@ -181,6 +181,15 @@ Authentication is handled using JWTs stored in HttpOnly cookies.
 
 ## Roadmap
 
+### Workspace Experience
+
+- [x] Optional workspace creation during onboarding
+- [x] Dashboard support for users without a workspace
+- [x] Create multiple workspaces
+- [x] Workspace switcher
+- [x] Workspace management page
+- [x] Remember last selected workspace
+
 ### Production & Reliability
 
 * [ ] Password recovery
