@@ -54,17 +54,7 @@ https://kitedesk-t9pq.onrender.com
 Tasks follow this workflow:
 
 
-To Do
-  ↓
-In Progress
-  ↓
-Review
-  ↓
-Approved → Done
-  ↓
-Changes Requested
-  ↓
-In Progress
+To Do → In Progress → Review → Approved → Done Review → Changes Requested → In Progress
 
 
 ### TECH STACK USED
