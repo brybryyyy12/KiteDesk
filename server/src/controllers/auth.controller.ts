@@ -132,13 +132,9 @@ const authCookieOptions:
   CookieOptions = {
     httpOnly: true,
 
-    secure:
-      isProduction,
+    secure: isProduction,
 
-    sameSite:
-      isProduction
-        ? "none"
-        : "lax",
+    sameSite: "lax",
 
     path: "/",
   };
