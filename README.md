@@ -22,7 +22,8 @@ https://kitedesk-t9pq.onrender.com
 <!-- Add dashboard screenshot here -->
 
 ```md
-![KiteDesk Dashboard](docs/screenshots/dashboard.png)
+!<img width="1585" height="847" alt="image" src="https://github.com/user-attachments/assets/b5d28b89-33f3-473f-9b19-11342144e240" />
+
 ```
 
 ### Workspace / Projects
