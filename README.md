@@ -237,6 +237,10 @@ cd KiteDesk
 Install the required dependencies for the frontend and backend according to the project structure:
 
 ```bash
+cd server
+npm install
+
+cd client 
 npm install
 ```
 
@@ -247,18 +251,24 @@ Configure the required environment variables before starting the application.
 Generate the Prisma client if required:
 
 ```bash
+run this on server
+
 npx prisma generate
 ```
 
 Run database migrations:
 
 ```bash
+run this on server
+
 npx prisma migrate dev
 ```
 
 Start the development server:
 
 ```bash
+run on both server and client
+
 npm run dev
 ```
 
