@@ -80,3 +80,34 @@ jwt
 
 github actions
 render
+
+
+IMPROVEMENTS TO BE WORKED ON
+## Roadmap
+
+### Production & Reliability
+- [ ] Password recovery
+- [ ] Improved invitation authentication flow
+- [ ] Persistent cloud attachment storage
+- [ ] Unit and end-to-end testing
+
+### Productivity
+- [ ] Global search
+- [ ] Advanced task filtering
+- [ ] Labels and tags
+- [ ] Subtasks and checklists
+- [ ] Project archiving
+
+### Collaboration
+- [ ] @mentions
+- [ ] Task dependencies
+- [ ] Email notifications
+- [ ] Recurring tasks
+- [ ] Project templates
+
+### Future
+- [ ] Real-time collaboration
+- [ ] Project analytics
+- [ ] Workload reporting
+- [ ] PWA support
+- [ ] Two-factor authentication
