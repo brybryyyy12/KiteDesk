@@ -67,19 +67,12 @@ Changes Requested
 In Progress
 
 
-Tech Stack used
-react + typescript
-vite
-tailwind
-
-node + express.js 
-prisma
-postgresql
-
-jwt
-
-github actions
-render
+### TECH STACK USED
+Frontend: React, TypeScript, Vite, Tailwind CSS
+Backend: Node.js, Express.js
+Database: PostgreSQL with Prisma ORM
+Authentication: JWT with HttpOnly cookies
+CI/CD & Deployment: GitHub Actions, Render
 
 
 
