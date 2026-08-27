@@ -22,7 +22,7 @@ https://kitedesk-t9pq.onrender.com
 <!-- Add dashboard screenshot here -->
 
 ```md
-![KiteDesk Projects](docs/screenshots/dashboard.png)
+![KiteDesk Projects](docs/screenshots/dashboard.PNG)
 
 ```
 
@@ -31,7 +31,7 @@ https://kitedesk-t9pq.onrender.com
 <!-- Add workspace or projects screenshot here -->
 
 ```md
-![KiteDesk Projects](docs/screenshots/Project.png)
+![KiteDesk Projects](docs/screenshots/Project.PNG)
 ```
 
 ### Task Management
@@ -39,9 +39,9 @@ https://kitedesk-t9pq.onrender.com
 <!-- Add task details or task board screenshot here -->
 
 ```md
-![KiteDesk Task Management](docs/screenshots/Task.png)
+![KiteDesk Task Management](docs/screenshots/Task.PNG)
 
-![KiteDesk Task Management](docs/screenshots/board.png)
+![KiteDesk Task Management](docs/screenshots/board.PNG)
 ```
 
 ---
