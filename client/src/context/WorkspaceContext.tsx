@@ -17,6 +17,12 @@ import {
   type ApiWorkspace,
 } from "../services/workspace.service";
 
+/*
+|--------------------------------------------------------------------------
+| TYPES
+|--------------------------------------------------------------------------
+*/
+
 export type WorkspaceRole =
   | "Owner"
   | "Manager"
@@ -50,13 +56,11 @@ type CreateWorkspaceData = {
   name: string;
 
   /*
-   * Kept temporarily so your
-   * existing onboarding page
-   * doesn't immediately break
-   * if it still passes a slug.
+   * Kept temporarily so existing
+   * onboarding code does not break
+   * if it still sends a slug.
    *
-   * The backend generates the
-   * real slug automatically.
+   * Backend generates the actual slug.
    */
   slug?: string;
 
@@ -68,7 +72,6 @@ type UpdateWorkspaceData = {
 
   /*
    * Backend keeps the slug stable.
-   * We don't send slug changes.
    */
   slug?: string;
 
@@ -111,6 +114,72 @@ const WorkspaceContext =
 
 /*
 |--------------------------------------------------------------------------
+| SAFE LOCAL STORAGE
+|--------------------------------------------------------------------------
+|
+| Some browsers/privacy settings may
+| prevent localStorage access.
+|
+| Workspace data itself does NOT depend
+| on localStorage. It only remembers
+| which workspace was selected.
+|
+| Therefore storage failure should never
+| break workspace loading.
+|
+*/
+
+function safeGetLocalStorage(
+  key: string
+): string | null {
+  try {
+    return window.localStorage.getItem(
+      key
+    );
+  } catch (error) {
+    console.warn(
+      "Unable to read localStorage:",
+      error
+    );
+
+    return null;
+  }
+}
+
+function safeSetLocalStorage(
+  key: string,
+  value: string
+): void {
+  try {
+    window.localStorage.setItem(
+      key,
+      value
+    );
+  } catch (error) {
+    console.warn(
+      "Unable to write localStorage:",
+      error
+    );
+  }
+}
+
+function safeRemoveLocalStorage(
+  key: string
+): void {
+  try {
+    window.localStorage.removeItem(
+      key
+    );
+  } catch (error) {
+    console.warn(
+      "Unable to remove localStorage:",
+      error
+    );
+  }
+}
+
+/*
+|--------------------------------------------------------------------------
 | ROLE MAPPING
 |--------------------------------------------------------------------------
 |
@@ -120,7 +189,7 @@ const WorkspaceContext =
 | MANAGER
 | MEMBER
 |
-| Existing frontend:
+| Frontend:
 |
 | Owner
 | Manager
@@ -196,6 +265,12 @@ function mapWorkspace(
   };
 }
 
+/*
+|--------------------------------------------------------------------------
+| PROVIDER
+|--------------------------------------------------------------------------
+*/
+
 type WorkspaceProviderProps = {
   children: ReactNode;
 };
@@ -242,16 +317,14 @@ export function WorkspaceProvider({
 
   /*
   |--------------------------------------------------------------------------
-  | ACTIVE WORKSPACE STORAGE
+  | ACTIVE WORKSPACE STORAGE KEY
   |--------------------------------------------------------------------------
   |
-  | We no longer store workspace
-  | data in localStorage.
+  | PostgreSQL remains the source of
+  | truth for workspaces.
   |
-  | PostgreSQL is the source of truth.
-  |
-  | localStorage only remembers which
-  | workspace the user selected.
+  | localStorage is optional and only
+  | remembers the selected workspace.
   |
   */
 
@@ -276,6 +349,9 @@ export function WorkspaceProvider({
   const refreshWorkspaces =
     useCallback(
       async () => {
+        /*
+         * User isn't authenticated.
+         */
         if (
           !isAuthenticated ||
           !user
@@ -286,6 +362,10 @@ export function WorkspaceProvider({
 
           setWorkspaces(
             []
+          );
+
+          setError(
+            null
           );
 
           setIsLoading(
@@ -304,6 +384,9 @@ export function WorkspaceProvider({
         );
 
         try {
+          /*
+           * GET /api/workspaces
+           */
           const response =
             await workspaceService.getAll();
 
@@ -317,9 +400,12 @@ export function WorkspaceProvider({
           );
 
           /*
-           * New account:
+           * NEW ACCOUNT
            *
-           * No workspace exists yet.
+           * A new account normally has
+           * no workspace yet.
+           *
+           * This is NOT an error.
            */
           if (
             loadedWorkspaces.length ===
@@ -329,13 +415,19 @@ export function WorkspaceProvider({
               null
             );
 
+            /*
+             * Clear an old selected
+             * workspace if one exists.
+             *
+             * Storage failure is ignored.
+             */
             const storageKey =
               getStorageKey();
 
             if (
               storageKey
             ) {
-              localStorage.removeItem(
+              safeRemoveLocalStorage(
                 storageKey
               );
             }
@@ -346,16 +438,23 @@ export function WorkspaceProvider({
           const storageKey =
             getStorageKey();
 
+          /*
+           * Attempt to restore previously
+           * selected workspace.
+           *
+           * If storage isn't available,
+           * this safely returns null.
+           */
           const storedWorkspaceId =
             storageKey
-              ? localStorage.getItem(
+              ? safeGetLocalStorage(
                   storageKey
                 )
               : null;
 
           /*
-           * Try to restore the user's
-           * previously active workspace.
+           * Look for previously selected
+           * workspace.
            */
           const storedWorkspace =
             loadedWorkspaces.find(
@@ -368,8 +467,9 @@ export function WorkspaceProvider({
 
           /*
            * If there is no valid stored
-           * workspace, use the first one
-           * returned by the server.
+           * workspace, simply select the
+           * first workspace returned by
+           * the backend.
            */
           const activeWorkspace =
             storedWorkspace ??
@@ -379,18 +479,22 @@ export function WorkspaceProvider({
             activeWorkspace
           );
 
+          /*
+           * Remember selection if the
+           * browser allows storage.
+           */
           if (
             storageKey
           ) {
-            localStorage.setItem(
+            safeSetLocalStorage(
               storageKey,
               activeWorkspace.id
             );
           }
-        } catch (error) {
+        } catch (caughtError) {
           console.error(
             "Failed to load workspaces:",
-            error
+            caughtError
           );
 
           setWorkspace(
@@ -401,9 +505,22 @@ export function WorkspaceProvider({
             []
           );
 
-          setError(
-            "Unable to load your workspace."
-          );
+          /*
+           * During debugging, show the
+           * actual error when possible.
+           */
+          if (
+            caughtError instanceof
+            Error
+          ) {
+            setError(
+              caughtError.message
+            );
+          } else {
+            setError(
+              "Unable to load your workspace."
+            );
+          }
         } finally {
           setIsLoading(
             false
@@ -422,11 +539,11 @@ export function WorkspaceProvider({
   | LOAD AFTER AUTHENTICATION
   |--------------------------------------------------------------------------
   |
-  | AuthContext first checks:
+  | AuthContext:
   |
   | GET /api/auth/me
   |
-  | Then WorkspaceContext checks:
+  | Then WorkspaceContext:
   |
   | GET /api/workspaces
   |
@@ -434,12 +551,19 @@ export function WorkspaceProvider({
 
   useEffect(
     () => {
+      /*
+       * Wait until AuthContext finishes
+       * checking the current session.
+       */
       if (
         isAuthLoading
       ) {
         return;
       }
 
+      /*
+       * No logged-in user.
+       */
       if (
         !isAuthenticated
       ) {
@@ -510,9 +634,14 @@ export function WorkspaceProvider({
             response.data.workspace
           );
 
+        /*
+         * Add the new workspace while
+         * preventing duplicates.
+         */
         setWorkspaces(
           (current) => [
             createdWorkspace,
+
             ...current.filter(
               (
                 candidate
@@ -527,13 +656,17 @@ export function WorkspaceProvider({
           createdWorkspace
         );
 
+        /*
+         * Remember active workspace if
+         * storage is available.
+         */
         const storageKey =
           getStorageKey();
 
         if (
           storageKey
         ) {
-          localStorage.setItem(
+          safeSetLocalStorage(
             storageKey,
             createdWorkspace.id
           );
@@ -590,10 +723,11 @@ export function WorkspaceProvider({
           );
 
         /*
-         * PATCH response doesn't
-         * necessarily include the
-         * existing counts, so preserve
-         * them from current state.
+         * PATCH response may not include
+         * existing counts.
+         *
+         * Preserve the existing counts
+         * when necessary.
          */
         const mapped =
           mapWorkspace(
@@ -667,13 +801,17 @@ export function WorkspaceProvider({
           selected
         );
 
+        /*
+         * Remember workspace selection
+         * only if storage is available.
+         */
         const storageKey =
           getStorageKey();
 
         if (
           storageKey
         ) {
-          localStorage.setItem(
+          safeSetLocalStorage(
             storageKey,
             selected.id
           );
@@ -690,13 +828,11 @@ export function WorkspaceProvider({
   | CLEAR ACTIVE WORKSPACE
   |--------------------------------------------------------------------------
   |
-  | IMPORTANT:
+  | This does NOT delete anything from
+  | PostgreSQL.
   |
-  | This does NOT delete the workspace
-  | from PostgreSQL.
-  |
-  | It only clears the currently
-  | selected workspace on this client.
+  | It only clears this client's current
+  | workspace selection.
   |
   */
 
@@ -709,7 +845,7 @@ export function WorkspaceProvider({
         if (
           storageKey
         ) {
-          localStorage.removeItem(
+          safeRemoveLocalStorage(
             storageKey
           );
         }
@@ -725,7 +861,7 @@ export function WorkspaceProvider({
 
   /*
   |--------------------------------------------------------------------------
-  | CONTEXT
+  | CONTEXT VALUE
   |--------------------------------------------------------------------------
   */
 
@@ -776,6 +912,12 @@ export function WorkspaceProvider({
     </WorkspaceContext.Provider>
   );
 }
+
+/*
+|--------------------------------------------------------------------------
+| HOOK
+|--------------------------------------------------------------------------
+*/
 
 export function useWorkspace() {
   const context =
