@@ -85,3 +85,31 @@ export type ResendVerificationResponse = {
 
   message: string;
 };
+
+/*
+|--------------------------------------------------------------------------
+| PASSWORD RECOVERY
+|--------------------------------------------------------------------------
+*/
+
+export type ForgotPasswordInput = {
+  email: string;
+};
+
+export type ForgotPasswordResponse = {
+  success: true;
+
+  message: string;
+};
+
+export type ResetPasswordInput = {
+  token: string;
+
+  password: string;
+};
+
+export type ResetPasswordResponse = {
+  success: true;
+
+  message: string;
+};

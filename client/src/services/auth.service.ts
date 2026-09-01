@@ -4,12 +4,16 @@ import {
 
 import type {
   AuthUserResponse,
+  ForgotPasswordInput,
+  ForgotPasswordResponse,
   LoginInput,
   MeResponse,
   RegisterInput,
   RegisterResponse,
   ResendVerificationInput,
   ResendVerificationResponse,
+  ResetPasswordInput,
+  ResetPasswordResponse,
   VerifyEmailInput,
   VerifyEmailResponse,
 } from "../types/auth";
@@ -62,6 +66,30 @@ export const authService = {
   ) {
     return apiFetch<ResendVerificationResponse>(
       "/auth/resend-verification",
+      {
+        method: "POST",
+        body: input,
+      }
+    );
+  },
+
+  forgotPassword(
+    input: ForgotPasswordInput
+  ) {
+    return apiFetch<ForgotPasswordResponse>(
+      "/auth/forgot-password",
+      {
+        method: "POST",
+        body: input,
+      }
+    );
+  },
+
+  resetPassword(
+    input: ResetPasswordInput
+  ) {
+    return apiFetch<ResetPasswordResponse>(
+      "/auth/reset-password",
       {
         method: "POST",
         body: input,

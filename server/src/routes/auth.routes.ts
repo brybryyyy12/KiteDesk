@@ -3,11 +3,13 @@ import {
 } from "express";
 
 import {
+  forgotPassword,
   login,
   logout,
   me,
   register,
   resendVerificationEmail,
+  resetPassword,
   verifyEmail,
 } from "../controllers/auth.controller.js";
 
@@ -47,6 +49,20 @@ router.post(
   "/resend-verification",
   asyncHandler(
     resendVerificationEmail
+  )
+);
+
+router.post(
+  "/forgot-password",
+  asyncHandler(
+    forgotPassword
+  )
+);
+
+router.post(
+  "/reset-password",
+  asyncHandler(
+    resetPassword
   )
 );
 

@@ -8,6 +8,8 @@ import LoginPage from "./pages/auth/LoginPage";
 import RegisterPage from "./pages/auth/RegisterPage";
 import CheckEmailPage from "./pages/auth/CheckEmailPage";
 import VerifyEmailPage from "./pages/auth/VerifyEmailPage";
+import ForgotPasswordPage from "./pages/auth/ForgotPasswordPage";
+import ResetPasswordPage from "./pages/auth/ResetPasswordPage";
 
 import InvitationPage from "./pages/invitations/InvitationPage";
 
@@ -97,6 +99,29 @@ function App() {
         path="/verify-email"
         element={
           <VerifyEmailPage />
+        }
+      />
+
+      {/* PASSWORD RECOVERY
+          ---------------------------------------------------------------
+          Password recovery routes stay public.
+
+          In particular, /reset-password must remain reachable even if
+          the browser currently has an authenticated session. A
+          successful reset clears the current browser's auth state.
+      */}
+
+      <Route
+        path="/forgot-password"
+        element={
+          <ForgotPasswordPage />
+        }
+      />
+
+      <Route
+        path="/reset-password"
+        element={
+          <ResetPasswordPage />
         }
       />
 

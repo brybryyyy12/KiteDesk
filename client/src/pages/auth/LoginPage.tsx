@@ -204,8 +204,9 @@ function LoginPage() {
         /*
          * POST /api/auth/login
          *
-         * JWT remains inside the
-         * HTTP-only cookie.
+         * AuthContext stores the returned
+         * user and keeps the Bearer-token
+         * fallback used by the deployed app.
          */
 
         await login({
@@ -311,6 +312,15 @@ function LoginPage() {
           returnTo
         )}`
       : "/register";
+
+  const forgotPasswordUrl =
+    form.email.trim()
+      ? `/forgot-password?email=${encodeURIComponent(
+          form.email
+            .trim()
+            .toLowerCase()
+        )}`
+      : "/forgot-password";
 
   return (
     <AuthLayout active="login">
@@ -499,12 +509,14 @@ function LoginPage() {
             Remember me
           </label>
 
-          <button
-            type="button"
+          <Link
+            to={
+              forgotPasswordUrl
+            }
             className="font-medium text-kite-blue-deep transition hover:text-kite-ink"
           >
             Forgot password?
-          </button>
+          </Link>
         </div>
 
         {/* API ERROR */}

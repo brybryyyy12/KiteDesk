@@ -36,6 +36,7 @@ import {
 
 import {
   sendEmailVerificationEmail,
+  sendPasswordResetEmail,
 } from "../services/email.service.js";
 
 /*
@@ -94,6 +95,73 @@ function createEmailVerificationUrl(
   const url =
     new URL(
       "/verify-email",
+      env.CLIENT_URL
+    );
+
+  url.searchParams.set(
+    "token",
+    token
+  );
+
+  return url.toString();
+}
+
+/*
+|--------------------------------------------------------------------------
+| PASSWORD RESET
+|--------------------------------------------------------------------------
+*/
+
+const PASSWORD_RESET_TOKEN_BYTES =
+  32;
+
+const PASSWORD_RESET_TTL_MS =
+  60 *
+  60 *
+  1000;
+
+const PASSWORD_RESET_RESEND_COOLDOWN_MS =
+  60 *
+  1000;
+
+function hashPasswordResetToken(
+  token: string
+) {
+  return createHash("sha256")
+    .update(token)
+    .digest("hex");
+}
+
+function createPasswordResetToken() {
+  const token =
+    randomBytes(
+      PASSWORD_RESET_TOKEN_BYTES
+    ).toString("hex");
+
+  const tokenHash =
+    hashPasswordResetToken(
+      token
+    );
+
+  const expiresAt =
+    new Date(
+      Date.now() +
+        PASSWORD_RESET_TTL_MS
+    );
+
+  return {
+    token,
+    tokenHash,
+    expiresAt,
+  };
+}
+
+function createPasswordResetUrl(
+  token: string
+) {
+  const url =
+    new URL(
+      "/reset-password",
       env.CLIENT_URL
     );
 
@@ -212,6 +280,55 @@ const resendVerificationSchema =
       .transform(
         (value) =>
           value.toLowerCase()
+      ),
+  });
+
+const forgotPasswordSchema =
+  z.object({
+    email: z
+      .string()
+      .trim()
+      .email(
+        "Enter a valid email address."
+      )
+      .max(255)
+      .transform(
+        (value) =>
+          value.toLowerCase()
+      ),
+  });
+
+const resetPasswordSchema =
+  z.object({
+    token: z
+      .string()
+      .trim()
+      .length(
+        64,
+        "Password reset token is invalid."
+      ),
+
+    password: z
+      .string()
+      .min(
+        8,
+        "Password must contain at least 8 characters."
+      )
+      .max(
+        128,
+        "Password is too long."
+      )
+      .regex(
+        /[A-Z]/,
+        "Password must contain at least one uppercase letter."
+      )
+      .regex(
+        /[a-z]/,
+        "Password must contain at least one lowercase letter."
+      )
+      .regex(
+        /[0-9]/,
+        "Password must contain at least one number."
       ),
   });
 
@@ -672,6 +789,255 @@ export async function resendVerificationEmail(
 
     message:
       genericMessage,
+  });
+}
+
+/*
+|--------------------------------------------------------------------------
+| FORGOT PASSWORD
+|--------------------------------------------------------------------------
+*/
+
+export async function forgotPassword(
+  request: Request,
+  response: Response
+) {
+  const data =
+    forgotPasswordSchema.parse(
+      request.body
+    );
+
+  const genericMessage =
+    "If an account exists for that email, a password reset link has been sent.";
+
+  const user =
+    await prisma.user.findUnique({
+      where: {
+        email:
+          data.email,
+      },
+
+      select: {
+        id: true,
+        name: true,
+        email: true,
+      },
+    });
+
+  if (
+    !user
+  ) {
+    response.json({
+      success: true,
+
+      message:
+        genericMessage,
+    });
+
+    return;
+  }
+
+  const existingToken =
+    await prisma.passwordResetToken.findUnique({
+      where: {
+        userId:
+          user.id,
+      },
+
+      select: {
+        createdAt: true,
+      },
+    });
+
+  if (
+    existingToken &&
+    Date.now() -
+      existingToken.createdAt.getTime() <
+      PASSWORD_RESET_RESEND_COOLDOWN_MS
+  ) {
+    response.json({
+      success: true,
+
+      message:
+        genericMessage,
+    });
+
+    return;
+  }
+
+  const reset =
+    createPasswordResetToken();
+
+  const createdAt =
+    new Date();
+
+  await prisma.passwordResetToken.upsert({
+    where: {
+      userId:
+        user.id,
+    },
+
+    update: {
+      tokenHash:
+        reset.tokenHash,
+
+      expiresAt:
+        reset.expiresAt,
+
+      createdAt,
+    },
+
+    create: {
+      userId:
+        user.id,
+
+      tokenHash:
+        reset.tokenHash,
+
+      expiresAt:
+        reset.expiresAt,
+
+      createdAt,
+    },
+  });
+
+  try {
+    await sendPasswordResetEmail({
+      to:
+        user.email,
+
+      name:
+        user.name,
+
+      resetUrl:
+        createPasswordResetUrl(
+          reset.token
+        ),
+
+      expiresAt:
+        reset.expiresAt,
+    });
+  } catch (error) {
+    /*
+     * Do not reveal whether the email belongs
+     * to an existing account by returning a
+     * different HTTP response.
+     *
+     * The email service already logs the
+     * provider-side failure.
+     */
+  }
+
+  response.json({
+    success: true,
+
+    message:
+      genericMessage,
+  });
+}
+
+/*
+|--------------------------------------------------------------------------
+| RESET PASSWORD
+|--------------------------------------------------------------------------
+*/
+
+export async function resetPassword(
+  request: Request,
+  response: Response
+) {
+  const data =
+    resetPasswordSchema.parse(
+      request.body
+    );
+
+  const tokenHash =
+    hashPasswordResetToken(
+      data.token
+    );
+
+  const resetRecord =
+    await prisma.passwordResetToken.findUnique({
+      where: {
+        tokenHash,
+      },
+
+      select: {
+        id: true,
+        userId: true,
+        expiresAt: true,
+      },
+    });
+
+  if (
+    !resetRecord
+  ) {
+    throw new AppError(
+      "This password reset link is invalid or has already been used.",
+      400,
+      "INVALID_PASSWORD_RESET_TOKEN"
+    );
+  }
+
+  if (
+    resetRecord.expiresAt.getTime() <=
+    Date.now()
+  ) {
+    await prisma.passwordResetToken.delete({
+      where: {
+        id:
+          resetRecord.id,
+      },
+    });
+
+    throw new AppError(
+      "This password reset link has expired. Request a new one.",
+      410,
+      "PASSWORD_RESET_TOKEN_EXPIRED"
+    );
+  }
+
+  const passwordHash =
+    await hashPassword(
+      data.password
+    );
+
+  await prisma.$transaction(
+    async (tx) => {
+      await tx.user.update({
+        where: {
+          id:
+            resetRecord.userId,
+        },
+
+        data: {
+          passwordHash,
+        },
+      });
+
+      await tx.passwordResetToken.delete({
+        where: {
+          id:
+            resetRecord.id,
+        },
+      });
+    }
+  );
+
+  /*
+   * If the reset link is opened in a browser
+   * that already has a KiteDesk auth cookie,
+   * remove that local cookie.
+   */
+  clearAuthCookie(
+    response
+  );
+
+  response.json({
+    success: true,
+
+    message:
+      "Password reset successfully. You can now sign in with your new password.",
   });
 }
 

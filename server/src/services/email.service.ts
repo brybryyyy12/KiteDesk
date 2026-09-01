@@ -374,6 +374,203 @@ export async function sendEmailVerificationEmail(
 
 /*
 |--------------------------------------------------------------------------
+| PASSWORD RESET
+|--------------------------------------------------------------------------
+*/
+
+type SendPasswordResetInput =
+  {
+    to: string;
+
+    name: string;
+
+    resetUrl: string;
+
+    expiresAt: Date;
+  };
+
+export async function sendPasswordResetEmail(
+  input:
+    SendPasswordResetInput
+) {
+  const name =
+    escapeHtml(
+      input.name
+    );
+
+  const resetUrl =
+    escapeHtml(
+      input.resetUrl
+    );
+
+  const expiration =
+    input.expiresAt.toLocaleString(
+      "en-US",
+      {
+        month:
+          "long",
+
+        day:
+          "numeric",
+
+        year:
+          "numeric",
+
+        hour:
+          "numeric",
+
+        minute:
+          "2-digit",
+
+        timeZoneName:
+          "short",
+      }
+    );
+
+  return sendTransactionalEmail({
+    to:
+      input.to,
+
+    subject:
+      "Reset your KiteDesk password",
+
+    errorMessage:
+      "The password reset email could not be sent.",
+
+    errorCode:
+      "PASSWORD_RESET_EMAIL_FAILED",
+
+    htmlContent: `
+      <!doctype html>
+      <html>
+        <body style="
+          margin:0;
+          padding:0;
+          background:#f7f5f1;
+          font-family:Inter,Arial,sans-serif;
+          color:#2e3338;
+        ">
+          <table
+            width="100%"
+            cellpadding="0"
+            cellspacing="0"
+            role="presentation"
+            style="
+              padding:40px 16px;
+              background:#f7f5f1;
+            "
+          >
+            <tr>
+              <td align="center">
+                <table
+                  width="100%"
+                  cellpadding="0"
+                  cellspacing="0"
+                  role="presentation"
+                  style="
+                    max-width:560px;
+                    background:#ffffff;
+                    border:1px solid #ece9e3;
+                    border-radius:20px;
+                  "
+                >
+                  <tr>
+                    <td style="padding:32px;">
+                      <div style="
+                        font-size:21px;
+                        font-weight:700;
+                        margin-bottom:28px;
+                      ">
+                        KiteDesk
+                      </div>
+
+                      <h1 style="
+                        margin:0;
+                        font-size:24px;
+                        line-height:1.3;
+                      ">
+                        Reset your password
+                      </h1>
+
+                      <p style="
+                        margin:16px 0 0;
+                        color:#7a8089;
+                        font-size:15px;
+                        line-height:1.7;
+                      ">
+                        Hi
+                        <strong style="color:#2e3338;">
+                          ${name}
+                        </strong>,
+                        we received a request to reset the
+                        password for your KiteDesk account.
+                      </p>
+
+                      <div style="margin:28px 0;">
+                        <a
+                          href="${resetUrl}"
+                          style="
+                            display:inline-block;
+                            padding:13px 20px;
+                            background:#6e94b0;
+                            color:#ffffff;
+                            text-decoration:none;
+                            border-radius:12px;
+                            font-size:14px;
+                            font-weight:600;
+                          "
+                        >
+                          Reset password
+                        </a>
+                      </div>
+
+                      <p style="
+                        margin:0;
+                        color:#aeb4bc;
+                        font-size:12px;
+                        line-height:1.6;
+                      ">
+                        This password reset link expires on
+                        ${expiration}.
+                      </p>
+
+                      <p style="
+                        margin:12px 0 0;
+                        color:#aeb4bc;
+                        font-size:12px;
+                        line-height:1.6;
+                      ">
+                        If you didn't request a password
+                        reset, you can safely ignore this
+                        email. Your password will not change.
+                      </p>
+
+                      <p style="
+                        margin:20px 0 0;
+                        color:#aeb4bc;
+                        font-size:11px;
+                        line-height:1.6;
+                        word-break:break-all;
+                      ">
+                        If the button does not work, copy and
+                        paste this link into your browser:
+                        <br />
+                        ${resetUrl}
+                      </p>
+                    </td>
+                  </tr>
+                </table>
+              </td>
+            </tr>
+          </table>
+        </body>
+      </html>
+    `,
+  });
+}
+
+/*
+|--------------------------------------------------------------------------
 | WORKSPACE INVITATION
 |--------------------------------------------------------------------------
 */
