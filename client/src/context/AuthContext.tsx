@@ -16,6 +16,7 @@ import type {
   AuthUser,
   LoginInput,
   RegisterInput,
+  RegisterResult,
 } from "../types/auth";
 
 /*
@@ -91,7 +92,7 @@ type AuthContextValue = {
 
   register: (
     input: RegisterInput
-  ) => Promise<AuthUser>;
+  ) => Promise<RegisterResult>;
 
   logout: () =>
     Promise<void>;
@@ -133,11 +134,6 @@ export function AuthProvider({
       AuthUser | null
     >(null);
 
-  /*
-   * true while we determine whether
-   * the browser currently has a
-   * valid authenticated session.
-   */
   const [
     isLoading,
     setIsLoading,
@@ -148,16 +144,6 @@ export function AuthProvider({
   |--------------------------------------------------------------------------
   | REFRESH USER
   |--------------------------------------------------------------------------
-  |
-  | apiFetch will send:
-  |
-  | Authorization: Bearer <token>
-  |
-  | when a stored token exists.
-  |
-  | The HTTP-only cookie remains a
-  | backend fallback.
-  |
   */
 
   const refreshUser =
@@ -181,11 +167,6 @@ export function AuthProvider({
             error
           );
 
-          /*
-           * If the token has become
-           * invalid/expired, clear the
-           * frontend authentication state.
-           */
           removeAuthToken();
 
           setUser(
@@ -202,16 +183,6 @@ export function AuthProvider({
   |--------------------------------------------------------------------------
   | INITIALIZE AUTH
   |--------------------------------------------------------------------------
-  |
-  | When the application loads:
-  |
-  | GET /api/auth/me
-  |
-  | apiFetch will attempt Bearer auth.
-  |
-  | If no Bearer token exists, the
-  | backend can still use its cookie.
-  |
   */
 
   useEffect(
@@ -240,10 +211,6 @@ export function AuthProvider({
             return;
           }
 
-          /*
-           * Stored token may be expired
-           * or invalid.
-           */
           removeAuthToken();
 
           setUser(
@@ -292,12 +259,6 @@ export function AuthProvider({
         const token =
           response.data.token;
 
-        /*
-         * Store Bearer token so all
-         * following API requests can
-         * authenticate even when the
-         * browser rejects the cookie.
-         */
         saveAuthToken(
           token
         );
@@ -315,6 +276,14 @@ export function AuthProvider({
   |--------------------------------------------------------------------------
   | REGISTER
   |--------------------------------------------------------------------------
+  |
+  | Registration no longer authenticates
+  | the user.
+  |
+  | The backend creates an unverified
+  | account, sends a verification email,
+  | and returns only verification state.
+  |
   */
 
   const register =
@@ -327,28 +296,17 @@ export function AuthProvider({
             input
           );
 
-        const registeredUser =
-          response.data.user;
-
-        const token =
-          response.data.token;
-
         /*
-         * IMPORTANT:
-         *
-         * This token will immediately be
-         * available when WorkspaceContext
-         * requests GET /api/workspaces.
+         * Never create a frontend session
+         * from a registration response.
          */
-        saveAuthToken(
-          token
-        );
+        removeAuthToken();
 
         setUser(
-          registeredUser
+          null
         );
 
-        return registeredUser;
+        return response.data;
       },
       []
     );
@@ -363,20 +321,8 @@ export function AuthProvider({
     useCallback(
       async () => {
         try {
-          /*
-           * The Bearer token is still
-           * available here, therefore
-           * apiFetch can authenticate
-           * this logout request.
-           */
           await authService.logout();
         } catch (error) {
-          /*
-           * Logout should still clear
-           * frontend authentication even
-           * if the server is temporarily
-           * unavailable.
-           */
           console.warn(
             "Server logout request failed:",
             error

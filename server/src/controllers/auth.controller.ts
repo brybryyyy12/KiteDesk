@@ -1,3 +1,8 @@
+import {
+  createHash,
+  randomBytes,
+} from "node:crypto";
+
 import type {
   CookieOptions,
   Request,
@@ -28,6 +33,77 @@ import {
 import {
   createAuthToken,
 } from "../utils/jwt.js";
+
+import {
+  sendEmailVerificationEmail,
+} from "../services/email.service.js";
+
+/*
+|--------------------------------------------------------------------------
+| EMAIL VERIFICATION
+|--------------------------------------------------------------------------
+*/
+
+const EMAIL_VERIFICATION_TOKEN_BYTES = 32;
+
+const EMAIL_VERIFICATION_TTL_MS =
+  24 *
+  60 *
+  60 *
+  1000;
+
+const EMAIL_VERIFICATION_RESEND_COOLDOWN_MS =
+  60 *
+  1000;
+
+function hashEmailVerificationToken(
+  token: string
+) {
+  return createHash("sha256")
+    .update(token)
+    .digest("hex");
+}
+
+function createEmailVerificationToken() {
+  const token =
+    randomBytes(
+      EMAIL_VERIFICATION_TOKEN_BYTES
+    ).toString("hex");
+
+  const tokenHash =
+    hashEmailVerificationToken(
+      token
+    );
+
+  const expiresAt =
+    new Date(
+      Date.now() +
+        EMAIL_VERIFICATION_TTL_MS
+    );
+
+  return {
+    token,
+    tokenHash,
+    expiresAt,
+  };
+}
+
+function createEmailVerificationUrl(
+  token: string
+) {
+  const url =
+    new URL(
+      "/verify-email",
+      env.CLIENT_URL
+    );
+
+  url.searchParams.set(
+    "token",
+    token
+  );
+
+  return url.toString();
+}
 
 /*
 |--------------------------------------------------------------------------
@@ -62,27 +138,27 @@ const registerSchema =
       ),
 
     password: z
-    .string()
-    .min(
-      8,
-      "Password must contain at least 8 characters."
-    )
-    .max(
-      128,
-      "Password is too long."
-    )
-    .regex(
-      /[A-Z]/,
-      "Password must contain at least one uppercase letter."
-    )
-    .regex(
-      /[a-z]/,
-      "Password must contain at least one lowercase letter."
-    )
-    .regex(
-      /[0-9]/,
-      "Password must contain at least one number."
-    ),
+      .string()
+      .min(
+        8,
+        "Password must contain at least 8 characters."
+      )
+      .max(
+        128,
+        "Password is too long."
+      )
+      .regex(
+        /[A-Z]/,
+        "Password must contain at least one uppercase letter."
+      )
+      .regex(
+        /[a-z]/,
+        "Password must contain at least one lowercase letter."
+      )
+      .regex(
+        /[0-9]/,
+        "Password must contain at least one number."
+      ),
 
     jobTitle: z
       .string()
@@ -113,41 +189,36 @@ const loginSchema =
       ),
   });
 
+const verifyEmailSchema =
+  z.object({
+    token: z
+      .string()
+      .trim()
+      .length(
+        64,
+        "Verification token is invalid."
+      ),
+  });
+
+const resendVerificationSchema =
+  z.object({
+    email: z
+      .string()
+      .trim()
+      .email(
+        "Enter a valid email address."
+      )
+      .max(255)
+      .transform(
+        (value) =>
+          value.toLowerCase()
+      ),
+  });
+
 /*
 |--------------------------------------------------------------------------
 | COOKIE
 |--------------------------------------------------------------------------
-|
-| Development:
-|
-| http://localhost:5173
-| http://localhost:5000
-|
-| secure   = false
-| sameSite = lax
-|
-| Production:
-|
-| https://kitedesk.onrender.com
-| https://kitedesk-api.onrender.com
-|
-| secure   = true
-| sameSite = none
-|
-| NOTE:
-|
-| We still keep the HTTP-only cookie
-| for browsers that support it.
-|
-| The token is also returned in the
-| JSON response so the frontend can
-| send:
-|
-| Authorization: Bearer <token>
-|
-| This helps browsers that block
-| cross-site cookies.
-|
 */
 
 const isProduction =
@@ -176,12 +247,6 @@ const AUTH_COOKIE_MAX_AGE =
   60 *
   1000;
 
-/*
-|--------------------------------------------------------------------------
-| SET AUTH COOKIE
-|--------------------------------------------------------------------------
-*/
-
 function setAuthCookie(
   response: Response,
   token: string
@@ -198,20 +263,9 @@ function setAuthCookie(
   );
 }
 
-/*
-|--------------------------------------------------------------------------
-| CLEAR AUTH COOKIE
-|--------------------------------------------------------------------------
-*/
-
 function clearAuthCookie(
   response: Response
 ) {
-  /*
-   * Clearing must use the same
-   * cookie scope used when the
-   * cookie was created.
-   */
   response.clearCookie(
     env.AUTH_COOKIE_NAME,
     authCookieOptions
@@ -233,10 +287,6 @@ export async function register(
       request.body
     );
 
-  /*
-   * Check whether the email
-   * already belongs to an account.
-   */
   const existingUser =
     await prisma.user.findUnique({
       where: {
@@ -259,19 +309,14 @@ export async function register(
     );
   }
 
-  /*
-   * Hash password before storing.
-   */
   const passwordHash =
     await hashPassword(
       data.password
     );
 
-  /*
-   * User + notification preferences
-   * should either both succeed
-   * or both fail.
-   */
+  const verification =
+    createEmailVerificationToken();
+
   const user =
     await prisma.$transaction(
       async (tx) => {
@@ -296,6 +341,7 @@ export async function register(
               name: true,
               email: true,
               jobTitle: true,
+              emailVerifiedAt: true,
               createdAt: true,
               updatedAt: true,
             },
@@ -308,31 +354,50 @@ export async function register(
           },
         });
 
+        await tx.emailVerificationToken.create({
+          data: {
+            userId:
+              createdUser.id,
+
+            tokenHash:
+              verification.tokenHash,
+
+            expiresAt:
+              verification.expiresAt,
+          },
+        });
+
         return createdUser;
       }
     );
 
-  /*
-   * Create JWT.
-   */
-  const token =
-    createAuthToken({
-      userId:
-        user.id,
+  let verificationEmailSent =
+    true;
+
+  try {
+    await sendEmailVerificationEmail({
+      to:
+        user.email,
+
+      name:
+        user.name,
+
+      verificationUrl:
+        createEmailVerificationUrl(
+          verification.token
+        ),
+
+      expiresAt:
+        verification.expiresAt,
     });
+  } catch {
+    verificationEmailSent =
+      false;
+  }
 
   /*
-   * Keep cookie authentication
-   * for supported browsers.
-   */
-  setAuthCookie(
-    response,
-    token
-  );
-
-  /*
-   * Also return token so the
-   * frontend can use Bearer auth.
+   * Do not authenticate the user here.
+   * They must verify their email first.
    */
   response
     .status(201)
@@ -340,14 +405,274 @@ export async function register(
       success: true,
 
       message:
-        "Account created successfully.",
+        verificationEmailSent
+          ? "Account created. Check your email to verify your account."
+          : "Account created, but the verification email could not be sent. Please request a new verification email.",
 
       data: {
-        user,
+        email:
+          user.email,
 
-        token,
+        requiresEmailVerification:
+          true,
+
+        verificationEmailSent,
       },
     });
+}
+
+/*
+|--------------------------------------------------------------------------
+| VERIFY EMAIL
+|--------------------------------------------------------------------------
+*/
+
+export async function verifyEmail(
+  request: Request,
+  response: Response
+) {
+  const data =
+    verifyEmailSchema.parse(
+      request.body
+    );
+
+  const tokenHash =
+    hashEmailVerificationToken(
+      data.token
+    );
+
+  const verificationRecord =
+    await prisma.emailVerificationToken.findUnique({
+      where: {
+        tokenHash,
+      },
+
+      select: {
+        id: true,
+        userId: true,
+        expiresAt: true,
+
+        user: {
+          select: {
+            emailVerifiedAt: true,
+          },
+        },
+      },
+    });
+
+  if (
+    !verificationRecord
+  ) {
+    throw new AppError(
+      "This verification link is invalid or has already been used.",
+      400,
+      "INVALID_VERIFICATION_TOKEN"
+    );
+  }
+
+  if (
+    verificationRecord.user
+      .emailVerifiedAt
+  ) {
+    await prisma.emailVerificationToken.delete({
+      where: {
+        id:
+          verificationRecord.id,
+      },
+    });
+
+    response.json({
+      success: true,
+
+      message:
+        "Your email address is already verified.",
+    });
+
+    return;
+  }
+
+  if (
+    verificationRecord.expiresAt.getTime() <=
+    Date.now()
+  ) {
+    await prisma.emailVerificationToken.delete({
+      where: {
+        id:
+          verificationRecord.id,
+      },
+    });
+
+    throw new AppError(
+      "This verification link has expired. Request a new verification email.",
+      410,
+      "VERIFICATION_TOKEN_EXPIRED"
+    );
+  }
+
+  await prisma.$transaction(
+    async (tx) => {
+      await tx.user.update({
+        where: {
+          id:
+            verificationRecord.userId,
+        },
+
+        data: {
+          emailVerifiedAt:
+            new Date(),
+        },
+      });
+
+      await tx.emailVerificationToken.delete({
+        where: {
+          id:
+            verificationRecord.id,
+        },
+      });
+    }
+  );
+
+  response.json({
+    success: true,
+
+    message:
+      "Email verified successfully. You can now sign in.",
+  });
+}
+
+/*
+|--------------------------------------------------------------------------
+| RESEND VERIFICATION EMAIL
+|--------------------------------------------------------------------------
+*/
+
+export async function resendVerificationEmail(
+  request: Request,
+  response: Response
+) {
+  const data =
+    resendVerificationSchema.parse(
+      request.body
+    );
+
+  const genericMessage =
+    "If this account still needs verification, a verification email has been sent.";
+
+  const user =
+    await prisma.user.findUnique({
+      where: {
+        email:
+          data.email,
+      },
+
+      select: {
+        id: true,
+        name: true,
+        email: true,
+        emailVerifiedAt: true,
+      },
+    });
+
+  if (
+    !user ||
+    user.emailVerifiedAt
+  ) {
+    response.json({
+      success: true,
+
+      message:
+        genericMessage,
+    });
+
+    return;
+  }
+
+  const existingToken =
+    await prisma.emailVerificationToken.findUnique({
+      where: {
+        userId:
+          user.id,
+      },
+
+      select: {
+        createdAt: true,
+      },
+    });
+
+  if (
+    existingToken &&
+    Date.now() -
+      existingToken.createdAt.getTime() <
+      EMAIL_VERIFICATION_RESEND_COOLDOWN_MS
+  ) {
+    response.json({
+      success: true,
+
+      message:
+        genericMessage,
+    });
+
+    return;
+  }
+
+  const verification =
+    createEmailVerificationToken();
+
+  const createdAt =
+    new Date();
+
+  await prisma.emailVerificationToken.upsert({
+    where: {
+      userId:
+        user.id,
+    },
+
+    update: {
+      tokenHash:
+        verification.tokenHash,
+
+      expiresAt:
+        verification.expiresAt,
+
+      createdAt,
+    },
+
+    create: {
+      userId:
+        user.id,
+
+      tokenHash:
+        verification.tokenHash,
+
+      expiresAt:
+        verification.expiresAt,
+
+      createdAt,
+    },
+  });
+
+  await sendEmailVerificationEmail({
+    to:
+      user.email,
+
+    name:
+      user.name,
+
+    verificationUrl:
+      createEmailVerificationUrl(
+        verification.token
+      ),
+
+    expiresAt:
+      verification.expiresAt,
+  });
+
+  response.json({
+    success: true,
+
+    message:
+      genericMessage,
+  });
 }
 
 /*
@@ -365,9 +690,6 @@ export async function login(
       request.body
     );
 
-  /*
-   * Find user by normalized email.
-   */
   const user =
     await prisma.user.findUnique({
       where: {
@@ -381,16 +703,12 @@ export async function login(
         email: true,
         passwordHash: true,
         jobTitle: true,
+        emailVerifiedAt: true,
         createdAt: true,
         updatedAt: true,
       },
     });
 
-  /*
-   * Keep the same error message
-   * for an unknown email and
-   * incorrect password.
-   */
   if (
     !user
   ) {
@@ -401,9 +719,6 @@ export async function login(
     );
   }
 
-  /*
-   * Verify password.
-   */
   const passwordMatches =
     await comparePassword(
       data.password,
@@ -420,28 +735,27 @@ export async function login(
     );
   }
 
-  /*
-   * Create JWT.
-   */
+  if (
+    !user.emailVerifiedAt
+  ) {
+    throw new AppError(
+      "Please verify your email address before signing in.",
+      403,
+      "EMAIL_NOT_VERIFIED"
+    );
+  }
+
   const token =
     createAuthToken({
       userId:
         user.id,
     });
 
-  /*
-   * Keep cookie authentication
-   * for browsers that support it.
-   */
   setAuthCookie(
     response,
     token
   );
 
-  /*
-   * Never return passwordHash
-   * to the frontend.
-   */
   const {
     passwordHash:
       _passwordHash,
@@ -449,12 +763,6 @@ export async function login(
     ...safeUser
   } = user;
 
-  /*
-   * Return both user and token.
-   *
-   * Token is used by the frontend
-   * for Authorization: Bearer ...
-   */
   response.json({
     success: true,
 
@@ -480,10 +788,6 @@ export async function me(
   request: Request,
   response: Response
 ) {
-  /*
-   * requireAuth middleware has
-   * already populated request.user.
-   */
   response.json({
     success: true,
 
@@ -504,12 +808,6 @@ export async function logout(
   _request: Request,
   response: Response
 ) {
-  /*
-   * Remove HTTP-only cookie.
-   *
-   * Frontend will separately remove
-   * its stored Bearer token.
-   */
   clearAuthCookie(
     response
   );

@@ -6,6 +6,8 @@ import {
 
 import LoginPage from "./pages/auth/LoginPage";
 import RegisterPage from "./pages/auth/RegisterPage";
+import CheckEmailPage from "./pages/auth/CheckEmailPage";
+import VerifyEmailPage from "./pages/auth/VerifyEmailPage";
 
 import InvitationPage from "./pages/invitations/InvitationPage";
 
@@ -73,6 +75,28 @@ function App() {
         path="/invitations/:token"
         element={
           <InvitationPage />
+        }
+      />
+
+      {/* EMAIL VERIFICATION
+          ---------------------------------------------------------------
+          These routes must remain public.
+
+          Newly registered users intentionally do not receive an auth
+          token until their email address has been verified.
+      */}
+
+      <Route
+        path="/check-email"
+        element={
+          <CheckEmailPage />
+        }
+      />
+
+      <Route
+        path="/verify-email"
+        element={
+          <VerifyEmailPage />
         }
       />
 
@@ -199,8 +223,7 @@ function App() {
             -------------------------------------------------------------
             Workspace optional.
 
-            This will become the workspace management page where the
-            user can:
+            This is the workspace management page where the user can:
             - see all workspaces
             - select one
             - create another

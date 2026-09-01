@@ -7,6 +7,8 @@ import {
   logout,
   me,
   register,
+  resendVerificationEmail,
+  verifyEmail,
 } from "../controllers/auth.controller.js";
 
 import {
@@ -34,6 +36,18 @@ router.post(
 router.post(
   "/login",
   asyncHandler(login)
+);
+
+router.post(
+  "/verify-email",
+  asyncHandler(verifyEmail)
+);
+
+router.post(
+  "/resend-verification",
+  asyncHandler(
+    resendVerificationEmail
+  )
 );
 
 /*

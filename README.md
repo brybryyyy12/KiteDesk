@@ -191,7 +191,7 @@ Authentication is handled using JWTs stored in HttpOnly cookies.
 - [x] Remember last selected workspace
 
 ### Production & Reliability
-
+- [x] Email verification for new accounts
 * [ ] Password recovery
 * [ ] Improved invitation authentication flow
 * [ ] Persistent cloud attachment storage

@@ -5,14 +5,20 @@ import {
 import type {
   AuthUserResponse,
   LoginInput,
+  MeResponse,
   RegisterInput,
+  RegisterResponse,
+  ResendVerificationInput,
+  ResendVerificationResponse,
+  VerifyEmailInput,
+  VerifyEmailResponse,
 } from "../types/auth";
 
 export const authService = {
   register(
     input: RegisterInput
   ) {
-    return apiFetch<AuthUserResponse>(
+    return apiFetch<RegisterResponse>(
       "/auth/register",
       {
         method: "POST",
@@ -34,8 +40,32 @@ export const authService = {
   },
 
   me() {
-    return apiFetch<AuthUserResponse>(
+    return apiFetch<MeResponse>(
       "/auth/me"
+    );
+  },
+
+  verifyEmail(
+    input: VerifyEmailInput
+  ) {
+    return apiFetch<VerifyEmailResponse>(
+      "/auth/verify-email",
+      {
+        method: "POST",
+        body: input,
+      }
+    );
+  },
+
+  resendVerification(
+    input: ResendVerificationInput
+  ) {
+    return apiFetch<ResendVerificationResponse>(
+      "/auth/resend-verification",
+      {
+        method: "POST",
+        body: input,
+      }
     );
   },
 

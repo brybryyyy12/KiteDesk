@@ -505,48 +505,56 @@ function RegisterPage() {
          * POST /api/auth/register
          */
 
-        await register({
-          name:
-            form.name.trim(),
+        const registration =
+          await register({
+            name:
+              form.name.trim(),
 
-          email:
-            form.email
-              .trim()
-              .toLowerCase(),
+            email:
+              form.email
+                .trim()
+                .toLowerCase(),
 
-          password:
-            form.password,
-        });
+            password:
+              form.password,
+          });
 
         /*
-         * INVITATION REGISTRATION
+         * Registration no longer logs the
+         * user in. Send them to the email
+         * verification waiting page.
          *
-         * Go back to the invitation
-         * instead of workspace onboarding.
+         * Preserve returnTo so invitation
+         * registrations can continue after
+         * verification and login.
          */
+
+        const nextParams =
+          new URLSearchParams();
+
+        nextParams.set(
+          "email",
+          registration.email
+        );
+
+        nextParams.set(
+          "sent",
+          registration.verificationEmailSent
+            ? "1"
+            : "0"
+        );
 
         if (
           returnTo
         ) {
-          navigate(
-            returnTo,
-            {
-              replace: true,
-            }
+          nextParams.set(
+            "returnTo",
+            returnTo
           );
-
-          return;
         }
 
-        /*
-         * NORMAL REGISTRATION
-         *
-         * New users create their first
-         * workspace.
-         */
-
         navigate(
-          "/onboarding/workspace",
+          `/check-email?${nextParams.toString()}`,
           {
             replace: true,
           }
@@ -1131,7 +1139,7 @@ function RegisterPage() {
           {isSubmitting
             ? "Creating account..."
             : isInvitationRegistration
-              ? "Create Account & Continue"
+              ? "Create Account & Verify Email"
               : "Register"}
         </button>
       </form>

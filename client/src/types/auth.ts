@@ -7,6 +7,8 @@ export type AuthUser = {
 
   jobTitle: string | null;
 
+  emailVerifiedAt?: string | null;
+
   createdAt: string;
 
   updatedAt: string;
@@ -28,6 +30,22 @@ export type RegisterInput = {
   jobTitle?: string | null;
 };
 
+export type RegisterResult = {
+  email: string;
+
+  requiresEmailVerification: true;
+
+  verificationEmailSent: boolean;
+};
+
+export type RegisterResponse = {
+  success: true;
+
+  message: string;
+
+  data: RegisterResult;
+};
+
 export type AuthUserResponse = {
   success: true;
 
@@ -38,4 +56,32 @@ export type AuthUserResponse = {
 
     token: string;
   };
+};
+
+export type MeResponse = {
+  success: true;
+
+  data: {
+    user: AuthUser;
+  };
+};
+
+export type VerifyEmailInput = {
+  token: string;
+};
+
+export type VerifyEmailResponse = {
+  success: true;
+
+  message: string;
+};
+
+export type ResendVerificationInput = {
+  email: string;
+};
+
+export type ResendVerificationResponse = {
+  success: true;
+
+  message: string;
 };
