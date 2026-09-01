@@ -1,5 +1,3 @@
-import nodemailer from "nodemailer";
-
 import {
   env,
 } from "../config/env.js";
@@ -10,46 +8,24 @@ import {
 
 /*
 |--------------------------------------------------------------------------
-| SMTP TRANSPORT
+| BREVO API
 |--------------------------------------------------------------------------
 |
-| Gmail SMTP is currently used for
-| KiteDesk transactional emails.
+| KiteDesk sends transactional email through
+| Brevo's HTTPS API instead of SMTP.
 |
-| The account must use a Google
-| App Password rather than the
-| normal Gmail password.
+| This works on Render Free because it does
+| not require outbound SMTP ports.
 |
 */
 
-const transporter =
-  nodemailer.createTransport({
-    host:
-      env.SMTP_HOST,
-
-    port:
-      env.SMTP_PORT,
-
-    secure:
-      env.SMTP_SECURE,
-
-    auth: {
-      user:
-        env.SMTP_USER,
-
-      pass:
-        env.SMTP_APP_PASSWORD,
-    },
-  });
+const BREVO_SEND_EMAIL_URL =
+  "https://api.brevo.com/v3/smtp/email";
 
 /*
 |--------------------------------------------------------------------------
 | HTML ESCAPING
 |--------------------------------------------------------------------------
-|
-| User-provided values are escaped
-| before being inserted into HTML.
-|
 */
 
 function escapeHtml(
@@ -76,6 +52,127 @@ function escapeHtml(
       "'",
       "&#039;"
     );
+}
+
+type BrevoErrorBody = {
+  code?: string;
+  message?: string;
+};
+
+type SendTransactionalEmailInput = {
+  to: string;
+  subject: string;
+  htmlContent: string;
+  errorMessage: string;
+  errorCode: string;
+};
+
+async function sendTransactionalEmail(
+  input:
+    SendTransactionalEmailInput
+) {
+  try {
+    const response =
+      await fetch(
+        BREVO_SEND_EMAIL_URL,
+        {
+          method:
+            "POST",
+
+          headers: {
+            accept:
+              "application/json",
+
+            "content-type":
+              "application/json",
+
+            "api-key":
+              env.BREVO_API_KEY,
+          },
+
+          body:
+            JSON.stringify({
+              sender: {
+                name:
+                  env.BREVO_SENDER_NAME,
+
+                email:
+                  env.BREVO_SENDER_EMAIL,
+              },
+
+              to: [
+                {
+                  email:
+                    input.to,
+                },
+              ],
+
+              subject:
+                input.subject,
+
+              htmlContent:
+                input.htmlContent,
+            }),
+        }
+      );
+
+    if (
+      !response.ok
+    ) {
+      let brevoError:
+        BrevoErrorBody | null =
+          null;
+
+      try {
+        brevoError =
+          (await response.json()) as
+            BrevoErrorBody;
+      } catch {
+        brevoError =
+          null;
+      }
+
+      console.error(
+        "Brevo email request failed:",
+        {
+          status:
+            response.status,
+
+          code:
+            brevoError?.code,
+
+          message:
+            brevoError?.message,
+        }
+      );
+
+      throw new AppError(
+        input.errorMessage,
+        502,
+        input.errorCode
+      );
+    }
+
+    return await response.json();
+  } catch (error) {
+    if (
+      error instanceof
+      AppError
+    ) {
+      throw error;
+    }
+
+    console.error(
+      "Brevo email request failed:",
+      error
+    );
+
+    throw new AppError(
+      input.errorMessage,
+      502,
+      input.errorCode
+    );
+  }
 }
 
 /*
@@ -110,7 +207,7 @@ export async function sendEmailVerificationEmail(
     );
 
   const expiration =
-    input.expiresAt.toLocaleDateString(
+    input.expiresAt.toLocaleString(
       "en-US",
       {
         month:
@@ -127,208 +224,152 @@ export async function sendEmailVerificationEmail(
 
         minute:
           "2-digit",
+
+        timeZoneName:
+          "short",
       }
     );
 
-  try {
-    const info =
-      await transporter.sendMail({
-        from:
-          env.EMAIL_FROM,
+  return sendTransactionalEmail({
+    to:
+      input.to,
 
-        to:
-          input.to,
+    subject:
+      "Verify your email address for KiteDesk",
 
-        subject:
-          "Verify your email address for KiteDesk",
+    errorMessage:
+      "The verification email could not be sent.",
 
-        text: [
-          `Hi ${input.name},`,
-          "",
-          "Thanks for creating a KiteDesk account.",
-          "",
-          "Verify your email address:",
-          input.verificationUrl,
-          "",
-          `This verification link expires on ${expiration}.`,
-          "",
-          "If you did not create this account, you can ignore this email.",
-        ].join("\n"),
+    errorCode:
+      "VERIFICATION_EMAIL_FAILED",
 
-        html: `
-          <!doctype html>
+    htmlContent: `
+      <!doctype html>
+      <html>
+        <body style="
+          margin:0;
+          padding:0;
+          background:#f7f5f1;
+          font-family:Inter,Arial,sans-serif;
+          color:#2e3338;
+        ">
+          <table
+            width="100%"
+            cellpadding="0"
+            cellspacing="0"
+            role="presentation"
+            style="
+              padding:40px 16px;
+              background:#f7f5f1;
+            "
+          >
+            <tr>
+              <td align="center">
+                <table
+                  width="100%"
+                  cellpadding="0"
+                  cellspacing="0"
+                  role="presentation"
+                  style="
+                    max-width:560px;
+                    background:#ffffff;
+                    border:1px solid #ece9e3;
+                    border-radius:20px;
+                  "
+                >
+                  <tr>
+                    <td style="padding:32px;">
+                      <div style="
+                        font-size:21px;
+                        font-weight:700;
+                        margin-bottom:28px;
+                      ">
+                        KiteDesk
+                      </div>
 
-          <html>
-            <body
-              style="
-                margin:0;
-                padding:0;
-                background:#f7f5f1;
-                font-family:Inter,Arial,sans-serif;
-                color:#2e3338;
-              "
-            >
+                      <h1 style="
+                        margin:0;
+                        font-size:24px;
+                        line-height:1.3;
+                      ">
+                        Verify your email
+                      </h1>
 
-              <table
-                width="100%"
-                cellpadding="0"
-                cellspacing="0"
-                role="presentation"
-                style="
-                  padding:40px 16px;
-                  background:#f7f5f1;
-                "
-              >
+                      <p style="
+                        margin:16px 0 0;
+                        color:#7a8089;
+                        font-size:15px;
+                        line-height:1.7;
+                      ">
+                        Hi
+                        <strong style="color:#2e3338;">
+                          ${name}
+                        </strong>,
+                        thanks for creating a KiteDesk account.
+                        Verify your email address to activate
+                        your account.
+                      </p>
 
-                <tr>
-                  <td align="center">
-
-                    <table
-                      width="100%"
-                      cellpadding="0"
-                      cellspacing="0"
-                      role="presentation"
-                      style="
-                        max-width:560px;
-                        background:#ffffff;
-                        border:1px solid #ece9e3;
-                        border-radius:20px;
-                      "
-                    >
-
-                      <tr>
-                        <td
+                      <div style="margin:28px 0;">
+                        <a
+                          href="${verificationUrl}"
                           style="
-                            padding:32px;
+                            display:inline-block;
+                            padding:13px 20px;
+                            background:#6e94b0;
+                            color:#ffffff;
+                            text-decoration:none;
+                            border-radius:12px;
+                            font-size:14px;
+                            font-weight:600;
                           "
                         >
+                          Verify email address
+                        </a>
+                      </div>
 
-                          <div
-                            style="
-                              font-size:21px;
-                              font-weight:700;
-                              margin-bottom:28px;
-                            "
-                          >
-                            KiteDesk
-                          </div>
+                      <p style="
+                        margin:0;
+                        color:#aeb4bc;
+                        font-size:12px;
+                        line-height:1.6;
+                      ">
+                        This verification link expires on
+                        ${expiration}.
+                      </p>
 
-                          <h1
-                            style="
-                              margin:0;
-                              font-size:24px;
-                              line-height:1.3;
-                            "
-                          >
-                            Verify your email
-                          </h1>
+                      <p style="
+                        margin:12px 0 0;
+                        color:#aeb4bc;
+                        font-size:12px;
+                        line-height:1.6;
+                      ">
+                        If you didn't create this account,
+                        you can safely ignore this email.
+                      </p>
 
-                          <p
-                            style="
-                              margin:16px 0 0;
-                              color:#7a8089;
-                              font-size:15px;
-                              line-height:1.7;
-                            "
-                          >
-
-                            Hi
-
-                            <strong
-                              style="
-                                color:#2e3338;
-                              "
-                            >
-                              ${name}
-                            </strong>,
-
-                            thanks for creating a
-                            KiteDesk account.
-
-                            Verify your email address
-                            to activate your account.
-
-                          </p>
-
-                          <div
-                            style="
-                              margin:28px 0;
-                            "
-                          >
-
-                            <a
-                              href="${verificationUrl}"
-                              style="
-                                display:inline-block;
-                                padding:13px 20px;
-                                background:#6e94b0;
-                                color:#ffffff;
-                                text-decoration:none;
-                                border-radius:12px;
-                                font-size:14px;
-                                font-weight:600;
-                              "
-                            >
-                              Verify email address
-                            </a>
-
-                          </div>
-
-                          <p
-                            style="
-                              margin:0;
-                              color:#aeb4bc;
-                              font-size:12px;
-                              line-height:1.6;
-                            "
-                          >
-                            This verification link
-                            expires on ${expiration}.
-                          </p>
-
-                          <p
-                            style="
-                              margin:12px 0 0;
-                              color:#aeb4bc;
-                              font-size:12px;
-                              line-height:1.6;
-                            "
-                          >
-                            If you didn't create this
-                            account, you can safely
-                            ignore this email.
-                          </p>
-
-                        </td>
-                      </tr>
-
-                    </table>
-
-                  </td>
-                </tr>
-
-              </table>
-
-            </body>
-          </html>
-        `,
-      });
-
-    return info;
-  } catch (
-    error
-  ) {
-    console.error(
-      "Gmail verification email failed:",
-      error
-    );
-
-    throw new AppError(
-      "The verification email could not be sent.",
-      502,
-      "VERIFICATION_EMAIL_FAILED"
-    );
-  }
+                      <p style="
+                        margin:20px 0 0;
+                        color:#aeb4bc;
+                        font-size:11px;
+                        line-height:1.6;
+                        word-break:break-all;
+                      ">
+                        If the button does not work, copy and
+                        paste this link into your browser:
+                        <br />
+                        ${verificationUrl}
+                      </p>
+                    </td>
+                  </tr>
+                </table>
+              </td>
+            </tr>
+          </table>
+        </body>
+      </html>
+    `,
+  });
 }
 
 /*
@@ -394,215 +435,151 @@ export async function sendWorkspaceInvitationEmail(
       }
     );
 
-  try {
-    const info =
-      await transporter.sendMail({
-        from:
-          env.EMAIL_FROM,
+  return sendTransactionalEmail({
+    to:
+      input.to,
 
-        to:
-          input.to,
+    subject:
+      `You're invited to join ${input.workspaceName} on KiteDesk`,
 
-        subject:
-          `You're invited to join ${input.workspaceName} on KiteDesk`,
+    errorMessage:
+      "The invitation email could not be sent.",
 
-        text: [
-          `${input.inviterName} invited you to join ${input.workspaceName} on KiteDesk as a ${role}.`,
-          "",
-          "Accept your invitation:",
-          input.invitationUrl,
-          "",
-          `This invitation expires on ${expiration}.`,
-          "",
-          "If you were not expecting this invitation, you can ignore this email.",
-        ].join("\n"),
+    errorCode:
+      "INVITATION_EMAIL_FAILED",
 
-        html: `
-          <!doctype html>
+    htmlContent: `
+      <!doctype html>
+      <html>
+        <body style="
+          margin:0;
+          padding:0;
+          background:#f7f5f1;
+          font-family:Inter,Arial,sans-serif;
+          color:#2e3338;
+        ">
+          <table
+            width="100%"
+            cellpadding="0"
+            cellspacing="0"
+            role="presentation"
+            style="
+              padding:40px 16px;
+              background:#f7f5f1;
+            "
+          >
+            <tr>
+              <td align="center">
+                <table
+                  width="100%"
+                  cellpadding="0"
+                  cellspacing="0"
+                  role="presentation"
+                  style="
+                    max-width:560px;
+                    background:#ffffff;
+                    border:1px solid #ece9e3;
+                    border-radius:20px;
+                  "
+                >
+                  <tr>
+                    <td style="padding:32px;">
+                      <div style="
+                        font-size:21px;
+                        font-weight:700;
+                        margin-bottom:28px;
+                      ">
+                        KiteDesk
+                      </div>
 
-          <html>
-            <body
-              style="
-                margin:0;
-                padding:0;
-                background:#f7f5f1;
-                font-family:Inter,Arial,sans-serif;
-                color:#2e3338;
-              "
-            >
+                      <h1 style="
+                        margin:0;
+                        font-size:24px;
+                        line-height:1.3;
+                      ">
+                        You're invited
+                      </h1>
 
-              <table
-                width="100%"
-                cellpadding="0"
-                cellspacing="0"
-                role="presentation"
-                style="
-                  padding:40px 16px;
-                  background:#f7f5f1;
-                "
-              >
+                      <p style="
+                        margin:16px 0 0;
+                        color:#7a8089;
+                        font-size:15px;
+                        line-height:1.7;
+                      ">
+                        <strong style="color:#2e3338;">
+                          ${inviterName}
+                        </strong>
+                        invited you to join
+                        <strong style="color:#2e3338;">
+                          ${workspaceName}
+                        </strong>
+                        on KiteDesk as a
+                        <strong style="color:#2e3338;">
+                          ${role}
+                        </strong>.
+                      </p>
 
-                <tr>
-                  <td align="center">
-
-                    <table
-                      width="100%"
-                      cellpadding="0"
-                      cellspacing="0"
-                      role="presentation"
-                      style="
-                        max-width:560px;
-                        background:#ffffff;
-                        border:1px solid #ece9e3;
-                        border-radius:20px;
-                      "
-                    >
-
-                      <tr>
-                        <td
+                      <div style="margin:28px 0;">
+                        <a
+                          href="${invitationUrl}"
                           style="
-                            padding:32px;
+                            display:inline-block;
+                            padding:13px 20px;
+                            background:#6e94b0;
+                            color:#ffffff;
+                            text-decoration:none;
+                            border-radius:12px;
+                            font-size:14px;
+                            font-weight:600;
                           "
                         >
+                          Accept invitation
+                        </a>
+                      </div>
 
-                          <div
-                            style="
-                              font-size:21px;
-                              font-weight:700;
-                              margin-bottom:28px;
-                            "
-                          >
-                            KiteDesk
-                          </div>
+                      <p style="
+                        margin:0;
+                        color:#aeb4bc;
+                        font-size:12px;
+                        line-height:1.6;
+                      ">
+                        This invitation expires on
+                        ${expiration}.
+                      </p>
 
-                          <h1
-                            style="
-                              margin:0;
-                              font-size:24px;
-                              line-height:1.3;
-                            "
-                          >
-                            You're invited
-                          </h1>
+                      <p style="
+                        margin:12px 0 0;
+                        color:#aeb4bc;
+                        font-size:12px;
+                        line-height:1.6;
+                      ">
+                        If you weren't expecting this
+                        invitation, you can safely
+                        ignore this email.
+                      </p>
 
-                          <p
-                            style="
-                              margin:16px 0 0;
-                              color:#7a8089;
-                              font-size:15px;
-                              line-height:1.7;
-                            "
-                          >
-
-                            <strong
-                              style="
-                                color:#2e3338;
-                              "
-                            >
-                              ${inviterName}
-                            </strong>
-
-                            invited you to join
-
-                            <strong
-                              style="
-                                color:#2e3338;
-                              "
-                            >
-                              ${workspaceName}
-                            </strong>
-
-                            on KiteDesk as a
-
-                            <strong
-                              style="
-                                color:#2e3338;
-                              "
-                            >
-                              ${role}
-                            </strong>.
-
-                          </p>
-
-                          <div
-                            style="
-                              margin:28px 0;
-                            "
-                          >
-
-                            <a
-                              href="${invitationUrl}"
-                              style="
-                                display:inline-block;
-                                padding:13px 20px;
-                                background:#6e94b0;
-                                color:#ffffff;
-                                text-decoration:none;
-                                border-radius:12px;
-                                font-size:14px;
-                                font-weight:600;
-                              "
-                            >
-                              Accept invitation
-                            </a>
-
-                          </div>
-
-                          <p
-                            style="
-                              margin:0;
-                              color:#aeb4bc;
-                              font-size:12px;
-                              line-height:1.6;
-                            "
-                          >
-                            This invitation expires
-                            on ${expiration}.
-                          </p>
-
-                          <p
-                            style="
-                              margin:12px 0 0;
-                              color:#aeb4bc;
-                              font-size:12px;
-                              line-height:1.6;
-                            "
-                          >
-                            If you weren't expecting
-                            this invitation, you can
-                            safely ignore this email.
-                          </p>
-
-                        </td>
-                      </tr>
-
-                    </table>
-
-                  </td>
-                </tr>
-
-              </table>
-
-            </body>
-          </html>
-        `,
-      });
-
-    return info;
-  } catch (
-    error
-  ) {
-    console.error(
-      "Gmail invitation email failed:",
-      error
-    );
-
-    throw new AppError(
-      "The invitation email could not be sent.",
-      502,
-      "INVITATION_EMAIL_FAILED"
-    );
-  }
+                      <p style="
+                        margin:20px 0 0;
+                        color:#aeb4bc;
+                        font-size:11px;
+                        line-height:1.6;
+                        word-break:break-all;
+                      ">
+                        If the button does not work, copy and
+                        paste this link into your browser:
+                        <br />
+                        ${invitationUrl}
+                      </p>
+                    </td>
+                  </tr>
+                </table>
+              </td>
+            </tr>
+          </table>
+        </body>
+      </html>
+    `,
+  });
 }
 
 /*

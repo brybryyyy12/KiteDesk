@@ -1,43 +1,8 @@
-import {
-  randomUUID,
-} from "node:crypto";
-
-import {
-  mkdirSync,
-} from "node:fs";
-
-import path from "node:path";
-
 import multer from "multer";
 
 import {
   AppError,
 } from "../utils/AppError.js";
-
-/*
-|--------------------------------------------------------------------------
-| UPLOAD DIRECTORY
-|--------------------------------------------------------------------------
-|
-| Files:
-|
-| server/uploads/tasks/
-|
-*/
-
-export const TASK_UPLOAD_DIRECTORY =
-  path.resolve(
-    process.cwd(),
-    "uploads",
-    "tasks"
-  );
-
-mkdirSync(
-  TASK_UPLOAD_DIRECTORY,
-  {
-    recursive: true,
-  }
-);
 
 /*
 |--------------------------------------------------------------------------
@@ -47,90 +12,37 @@ mkdirSync(
 
 const allowedMimeTypes =
   new Set([
-    /*
-     * Images
-     */
     "image/jpeg",
     "image/png",
     "image/webp",
     "image/gif",
-
-    /*
-     * Documents
-     */
     "application/pdf",
     "text/plain",
     "text/csv",
     "application/json",
-
-    /*
-     * Microsoft Office
-     */
     "application/msword",
-
     "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
-
     "application/vnd.ms-excel",
-
     "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-
     "application/vnd.ms-powerpoint",
-
     "application/vnd.openxmlformats-officedocument.presentationml.presentation",
-
-    /*
-     * Archives
-     */
     "application/zip",
     "application/x-zip-compressed",
   ]);
 
 /*
 |--------------------------------------------------------------------------
-| STORAGE
+| MEMORY STORAGE
 |--------------------------------------------------------------------------
+|
+| Files are kept in memory only long enough
+| for the controller to upload file.buffer
+| to Cloudflare R2.
+|
 */
 
 const storage =
-  multer.diskStorage({
-    destination: (
-      _request,
-      _file,
-      callback
-    ) => {
-      callback(
-        null,
-        TASK_UPLOAD_DIRECTORY
-      );
-    },
-
-    filename: (
-      _request,
-      file,
-      callback
-    ) => {
-      const extension =
-        path
-          .extname(
-            file.originalname
-          )
-          .toLowerCase();
-
-      const fileName =
-        `${randomUUID()}${extension}`;
-
-      callback(
-        null,
-        fileName
-      );
-    },
-  });
-
-/*
-|--------------------------------------------------------------------------
-| FILE FILTER
-|--------------------------------------------------------------------------
-*/
+  multer.memoryStorage();
 
 function fileFilter(
   _request: Express.Request,
@@ -159,16 +71,6 @@ function fileFilter(
     true
   );
 }
-
-/*
-|--------------------------------------------------------------------------
-| MULTER
-|--------------------------------------------------------------------------
-|
-| Maximum:
-| 10 MB per file
-|
-*/
 
 export const taskUpload =
   multer({

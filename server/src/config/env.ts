@@ -1,3 +1,5 @@
+import "dotenv/config";
+
 import {
   z,
 } from "zod";
@@ -53,55 +55,74 @@ const envSchema =
 
     /*
     |--------------------------------------------------------------------------
-    | EMAIL / SMTP
+    | EMAIL / BREVO
     |--------------------------------------------------------------------------
     */
 
-    SMTP_HOST: z
+    BREVO_API_KEY: z
       .string()
       .min(
         1,
-        "SMTP_HOST is required."
+        "BREVO_API_KEY is required."
+      ),
+
+    BREVO_SENDER_EMAIL: z
+      .string()
+      .trim()
+      .email(
+        "BREVO_SENDER_EMAIL must be a valid email address."
+      ),
+
+    BREVO_SENDER_NAME: z
+      .string()
+      .trim()
+      .min(
+        1,
+        "BREVO_SENDER_NAME is required."
+      )
+      .max(
+        100,
+        "BREVO_SENDER_NAME is too long."
       )
       .default(
-        "smtp.gmail.com"
+        "KiteDesk"
       ),
 
-    SMTP_PORT: z.coerce
-      .number()
-      .int()
-      .positive()
-      .default(465),
+    /*
+    |--------------------------------------------------------------------------
+    | CLOUDFLARE R2
+    |--------------------------------------------------------------------------
+    */
 
-    SMTP_SECURE: z
-      .enum([
-        "true",
-        "false",
-      ])
-      .default("true")
-      .transform(
-        (value) =>
-          value === "true"
-      ),
-
-    SMTP_USER: z
+    R2_ACCOUNT_ID: z
       .string()
-      .email(
-        "SMTP_USER must be a valid email address."
+      .trim()
+      .min(
+        1,
+        "R2_ACCOUNT_ID is required."
       ),
 
-    SMTP_APP_PASSWORD: z
+    R2_ACCESS_KEY_ID: z
+      .string()
+      .trim()
+      .min(
+        1,
+        "R2_ACCESS_KEY_ID is required."
+      ),
+
+    R2_SECRET_ACCESS_KEY: z
       .string()
       .min(
         1,
-        "SMTP_APP_PASSWORD is required."
+        "R2_SECRET_ACCESS_KEY is required."
       ),
 
-    EMAIL_FROM: z
+    R2_BUCKET_NAME: z
       .string()
+      .trim()
       .min(
-        1,
-        "EMAIL_FROM is required."
+        3,
+        "R2_BUCKET_NAME is required."
       ),
   });
 

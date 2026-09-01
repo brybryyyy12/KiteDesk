@@ -1,8 +1,10 @@
 import {
-  promises as fs,
-} from "node:fs";
+  randomUUID,
+} from "node:crypto";
 
-import path from "node:path";
+import {
+  pipeline,
+} from "node:stream/promises";
 
 import type {
   Request,
@@ -18,18 +20,14 @@ import {
 } from "../config/prisma.js";
 
 import {
-  TASK_UPLOAD_DIRECTORY,
-} from "../middleware/upload.middleware.js";
+  deleteR2Object,
+  getR2Object,
+  uploadR2Object,
+} from "../services/r2.service.js";
 
 import {
   AppError,
 } from "../utils/AppError.js";
-
-/*
-|--------------------------------------------------------------------------
-| VALIDATION
-|--------------------------------------------------------------------------
-*/
 
 const attachmentParamsSchema =
   z.object({
@@ -49,12 +47,6 @@ const attachmentParamsSchema =
           "Invalid attachment ID."
         ),
   });
-
-/*
-|--------------------------------------------------------------------------
-| GET ATTACHMENTS
-|--------------------------------------------------------------------------
-*/
 
 export async function getTaskAttachments(
   request: Request,
@@ -121,12 +113,6 @@ export async function getTaskAttachments(
   });
 }
 
-/*
-|--------------------------------------------------------------------------
-| UPLOAD ATTACHMENT
-|--------------------------------------------------------------------------
-*/
-
 export async function uploadTaskAttachment(
   request: Request,
   response: Response
@@ -152,23 +138,15 @@ export async function uploadTaskAttachment(
     !workspace ||
     !actor
   ) {
-    /*
-     * Remove uploaded file if somehow
-     * context disappeared.
-     */
-    if (file) {
-      await safeDeleteFile(
-        file.path
-      );
-    }
-
     throw new AppError(
       "Task context is missing.",
       500
     );
   }
 
-  if (!file) {
+  if (
+    !file
+  ) {
     throw new AppError(
       "Select a file to upload.",
       400,
@@ -176,20 +154,27 @@ export async function uploadTaskAttachment(
     );
   }
 
-  /*
-   * Store a relative internal file
-   * locator.
-   *
-   * We intentionally do NOT expose
-   * this directory through
-   * express.static.
-   */
-  const relativeFilePath =
-    path.posix.join(
-      "uploads",
+  const objectKey =
+    [
+      "workspaces",
+      workspace.id,
+      "projects",
+      project.id,
       "tasks",
-      file.filename
-    );
+      task.id,
+      randomUUID(),
+    ].join("/");
+
+  await uploadR2Object({
+    key:
+      objectKey,
+
+    body:
+      file.buffer,
+
+    contentType:
+      file.mimetype,
+  });
 
   try {
     const attachment =
@@ -208,7 +193,7 @@ export async function uploadTaskAttachment(
                   file.originalname,
 
                 fileUrl:
-                  relativeFilePath,
+                  objectKey,
 
                 mimeType:
                   file.mimetype,
@@ -270,35 +255,13 @@ export async function uploadTaskAttachment(
         },
       });
   } catch (error) {
-    /*
-     * Database operation failed after
-     * Multer saved the file.
-     *
-     * Remove the orphaned file.
-     */
-    await safeDeleteFile(
-      file.path
+    await safeDeleteR2Object(
+      objectKey
     );
 
     throw error;
   }
 }
-
-/*
-|--------------------------------------------------------------------------
-| DOWNLOAD ATTACHMENT
-|--------------------------------------------------------------------------
-|
-| This route is protected by:
-|
-| requireAuth
-| requireWorkspaceMembership
-| requireProjectAccess
-| requireTask
-|
-| so files are not publicly exposed.
-|
-*/
 
 export async function downloadTaskAttachment(
   request: Request,
@@ -307,7 +270,9 @@ export async function downloadTaskAttachment(
   const task =
     request.task;
 
-  if (!task) {
+  if (
+    !task
+  ) {
     throw new AppError(
       "Task context is missing.",
       500
@@ -332,7 +297,9 @@ export async function downloadTaskAttachment(
       },
     });
 
-  if (!attachment) {
+  if (
+    !attachment
+  ) {
     throw new AppError(
       "Attachment not found.",
       404,
@@ -340,55 +307,60 @@ export async function downloadTaskAttachment(
     );
   }
 
-  /*
-   * We generate filenames ourselves,
-   * but still resolve and verify the
-   * path before reading from disk.
-   */
-  const absolutePath =
-    path.resolve(
-      process.cwd(),
+  const storedObject =
+    await getR2Object(
       attachment.fileUrl
     );
 
-  const normalizedUploadDirectory =
-    `${TASK_UPLOAD_DIRECTORY}${path.sep}`;
+  response.setHeader(
+    "Content-Type",
+    attachment.mimeType
+  );
 
-  if (
-    !absolutePath.startsWith(
-      normalizedUploadDirectory
+  response.setHeader(
+    "Content-Length",
+    String(
+      storedObject.contentLength ??
+        attachment.fileSize
     )
-  ) {
-    throw new AppError(
-      "Invalid attachment path.",
-      500,
-      "INVALID_ATTACHMENT_PATH"
-    );
-  }
+  );
+
+  response.setHeader(
+    "Content-Disposition",
+    createAttachmentDisposition(
+      attachment.fileName
+    )
+  );
+
+  response.setHeader(
+    "Cache-Control",
+    "private, no-store"
+  );
 
   try {
-    await fs.access(
-      absolutePath
+    await pipeline(
+      storedObject.body,
+      response
     );
-  } catch {
-    throw new AppError(
-      "The attachment file is missing from storage.",
-      404,
-      "ATTACHMENT_FILE_MISSING"
+  } catch (error) {
+    console.error(
+      "Attachment stream failed:",
+      error
     );
+
+    if (
+      !response.headersSent
+    ) {
+      throw new AppError(
+        "The attachment could not be downloaded.",
+        502,
+        "ATTACHMENT_STREAM_FAILED"
+      );
+    }
+
+    response.destroy();
   }
-
-  response.download(
-    absolutePath,
-    attachment.fileName
-  );
 }
-
-/*
-|--------------------------------------------------------------------------
-| RESPONSE MAPPER
-|--------------------------------------------------------------------------
-*/
 
 function mapAttachment(
   workspaceId: string,
@@ -428,31 +400,52 @@ function mapAttachment(
     createdAt:
       attachment.createdAt,
 
-    /*
-     * React should use this URL,
-     * not the internal fileUrl.
-     */
     downloadUrl:
       `/api/workspaces/${workspaceId}/projects/${projectId}/tasks/${taskId}/attachments/${attachment.id}/file`,
   };
 }
 
-/*
-|--------------------------------------------------------------------------
-| SAFE FILE CLEANUP
-|--------------------------------------------------------------------------
-*/
+function createAttachmentDisposition(
+  fileName: string
+) {
+  const asciiFallback =
+    fileName
+      .replace(
+        /[\r\n"\\]/g,
+        "_"
+      )
+      .replace(
+        /[^\x20-\x7E]/g,
+        "_"
+      )
+      .trim() ||
+    "attachment";
 
-async function safeDeleteFile(
-  filePath: string
+  const encodedFileName =
+    encodeURIComponent(
+      fileName
+    ).replace(
+      /['()*]/g,
+      (character) =>
+        `%${character
+          .charCodeAt(0)
+          .toString(16)
+          .toUpperCase()}`
+    );
+
+  return `attachment; filename="${asciiFallback}"; filename*=UTF-8''${encodedFileName}`;
+}
+
+async function safeDeleteR2Object(
+  objectKey: string
 ) {
   try {
-    await fs.unlink(
-      filePath
+    await deleteR2Object(
+      objectKey
     );
   } catch {
     /*
-     * Cleanup failure shouldn't hide
+     * Cleanup failure should not hide
      * the original application error.
      */
   }
