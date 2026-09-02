@@ -74,6 +74,60 @@ function formatDate(
   ).format(date);
 }
 
+function getInvitationStatusCopy(
+  status:
+    InvitationDetails["status"]
+) {
+  switch (
+    status
+  ) {
+    case "ACCEPTED":
+      return {
+        title:
+          "Invitation accepted",
+
+        description:
+          "This invitation has already been accepted. If this is your account, you can continue to KiteDesk.",
+      };
+
+    case "DECLINED":
+      return {
+        title:
+          "Invitation declined",
+
+        description:
+          "This invitation was declined and can no longer be accepted.",
+      };
+
+    case "EXPIRED":
+      return {
+        title:
+          "Invitation expired",
+
+        description:
+          "This invitation has expired. Ask a workspace owner or manager to send a new invitation.",
+      };
+
+    case "REVOKED":
+      return {
+        title:
+          "Invitation revoked",
+
+        description:
+          "This invitation was revoked and can no longer be used.",
+      };
+
+    default:
+      return {
+        title:
+          "Invitation unavailable",
+
+        description:
+          "This invitation can no longer be accepted.",
+      };
+  }
+}
+
 /*
 |--------------------------------------------------------------------------
 | PAGE
@@ -96,6 +150,7 @@ function InvitationPage() {
     isAuthenticated,
     isLoading:
       isAuthLoading,
+    logout,
   } =
     useAuth();
 
@@ -147,6 +202,12 @@ function InvitationPage() {
     setSuccessMessage,
   ] =
     useState("");
+
+  const [
+    isSwitchingAccount,
+    setIsSwitchingAccount,
+  ] =
+    useState(false);
 
   /*
   |--------------------------------------------------------------------------
@@ -263,6 +324,35 @@ function InvitationPage() {
           returnTo
         )}`
       );
+    };
+
+  const handleSwitchAccount =
+    async () => {
+      if (
+        !token ||
+        isSwitchingAccount
+      ) {
+        return;
+      }
+
+      setIsSwitchingAccount(
+        true
+      );
+
+      try {
+        await logout();
+
+        /*
+         * Keep the invitation as returnTo so
+         * the correct account comes straight
+         * back here after login.
+         */
+        goToLogin();
+      } finally {
+        setIsSwitchingAccount(
+          false
+        );
+      }
     };
 
   /*
@@ -478,6 +568,11 @@ function InvitationPage() {
     invitation.status ===
     "PENDING";
 
+  const statusCopy =
+    getInvitationStatusCopy(
+      invitation.status
+    );
+
   const emailMatches =
     user?.email
       .trim()
@@ -488,7 +583,8 @@ function InvitationPage() {
 
   const isWorking =
     isAccepting ||
-    isDeclining;
+    isDeclining ||
+    isSwitchingAccount;
 
   /*
   |--------------------------------------------------------------------------
@@ -853,16 +949,16 @@ function InvitationPage() {
 
                       <div>
 
-                        <p className="text-sm font-medium capitalize text-kite-ink">
-                          Invitation{" "}
+                        <p className="text-sm font-medium text-kite-ink">
                           {
-                            invitation.status
-                              .toLowerCase()
+                            statusCopy.title
                           }
                         </p>
 
                         <p className="mt-1 text-xs leading-5 text-kite-muted">
-                          This invitation can no longer be accepted.
+                          {
+                            statusCopy.description
+                          }
                         </p>
 
                       </div>
@@ -980,6 +1076,21 @@ function InvitationPage() {
                     <p className="mt-3 border-t border-amber-200 pt-3 text-xs leading-5 text-amber-700">
                       Sign in with the invited account before accepting this invitation.
                     </p>
+
+                    <button
+                      type="button"
+                      onClick={() =>
+                        void handleSwitchAccount()
+                      }
+                      disabled={
+                        isWorking
+                      }
+                      className="mt-4 w-full rounded-xl border border-amber-200 bg-white px-4 py-3 text-sm font-medium text-amber-800 transition hover:bg-amber-100/60 disabled:cursor-not-allowed disabled:opacity-60"
+                    >
+                      {isSwitchingAccount
+                        ? "Signing out..."
+                        : "Sign out and use invited account"}
+                    </button>
 
                   </div>
                 )}

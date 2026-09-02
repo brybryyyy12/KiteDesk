@@ -336,8 +336,7 @@ export async function createInvitation(
   }
 
   response
-response
-  .status(201)
+    .status(201)
   .json({
     success: true,
 
@@ -733,37 +732,230 @@ export async function acceptInvitation(
     );
   }
 
+  /*
+   * Unlike the old helper, this lookup
+   * permits an already-ACCEPTED invitation.
+   *
+   * That makes accepting idempotent:
+   * double-clicks/retries do not create
+   * duplicate memberships or turn a
+   * successful accept into a confusing
+   * 409 response.
+   */
   const invitation =
-    await getUsableInvitation(
+    await getInvitationForUser(
       token,
       user.email
     );
 
-  const existingMembership =
-    await prisma.workspaceMembership.findUnique({
-      where: {
-        workspaceId_userId: {
-          workspaceId:
-            invitation.workspaceId,
+  /*
+   * An ACCEPTED invitation must never become
+   * a reusable way to rejoin after someone
+   * is intentionally removed from a workspace.
+   *
+   * We only treat a repeated accept as
+   * successful when the membership still
+   * exists.
+   */
+  if (
+    invitation.status ===
+    "ACCEPTED"
+  ) {
+    const existingMembership =
+      await prisma.workspaceMembership.findUnique({
+        where: {
+          workspaceId_userId: {
+            workspaceId:
+              invitation.workspaceId,
 
-          userId:
-            user.id,
+            userId:
+              user.id,
+          },
         },
+      });
+
+    if (
+      !existingMembership
+    ) {
+      throwInvitationStateError(
+        invitation.status,
+        invitation.expiresAt
+      );
+    }
+
+    response.json({
+      success: true,
+
+      message:
+        `You are already a member of ${invitation.workspace.name}.`,
+
+      data: {
+        workspace: {
+          id:
+            invitation.workspace.id,
+
+          name:
+            invitation.workspace.name,
+
+          slug:
+            invitation.workspace.slug,
+
+          description:
+            invitation.workspace
+              .description,
+
+          role:
+            existingMembership.role,
+
+          joinedAt:
+            existingMembership.joinedAt,
+        },
+
+        alreadyMember:
+          true,
       },
     });
 
-  if (existingMembership) {
-    throw new AppError(
-      "You are already a member of this workspace.",
-      409,
-      "ALREADY_WORKSPACE_MEMBER"
-    );
+    return;
   }
+
+  assertInvitationCanBeAccepted(
+    invitation
+  );
+
+  const now =
+    new Date();
 
   const result =
     await prisma.$transaction(
       async (tx) => {
+        /*
+         * Atomically claim a still-pending
+         * invitation.
+         *
+         * updateMany gives us a conditional
+         * update so ACCEPT and DECLINE cannot
+         * silently overwrite each other.
+         */
+        if (
+          invitation.status ===
+          "PENDING"
+        ) {
+          const claim =
+            await tx.invitation.updateMany({
+              where: {
+                id:
+                  invitation.id,
+
+                status:
+                  "PENDING",
+
+                expiresAt: {
+                  gt:
+                    now,
+                },
+              },
+
+              data: {
+                status:
+                  "ACCEPTED",
+
+                acceptedAt:
+                  now,
+              },
+            });
+
+          /*
+           * Another request may have changed
+           * the invitation after our initial
+           * read. Re-check the committed state
+           * before continuing.
+           */
+          if (
+            claim.count ===
+            0
+          ) {
+            const current =
+              await tx.invitation.findUnique({
+                where: {
+                  id:
+                    invitation.id,
+                },
+
+                select: {
+                  status: true,
+                  expiresAt: true,
+                },
+              });
+
+            if (
+              !current
+            ) {
+              throw new AppError(
+                "Invitation not found.",
+                404,
+                "INVITATION_NOT_FOUND"
+              );
+            }
+
+            if (
+              current.status !==
+              "ACCEPTED"
+            ) {
+              throwInvitationStateError(
+                current.status,
+                current.expiresAt
+              );
+            }
+
+            const concurrentMembership =
+              await tx.workspaceMembership.findUnique({
+                where: {
+                  workspaceId_userId: {
+                    workspaceId:
+                      invitation.workspaceId,
+
+                    userId:
+                      user.id,
+                  },
+                },
+              });
+
+            if (
+              !concurrentMembership
+            ) {
+              throwInvitationStateError(
+                current.status,
+                current.expiresAt
+              );
+            }
+          }
+        }
+
+        /*
+         * Normalize an already-existing
+         * membership instead of throwing a
+         * conflict for a still-pending invite.
+         *
+         * The compound unique key makes this
+         * safe even if two accept requests
+         * arrive at nearly the same time.
+         */
+        const existingMembership =
+          await tx.workspaceMembership.findUnique({
+            where: {
+              workspaceId_userId: {
+                workspaceId:
+                  invitation.workspaceId,
+
+                userId:
+                  user.id,
+              },
+            },
+          });
+
         const membership =
+          existingMembership ??
           await tx.workspaceMembership.create({
             data: {
               workspaceId:
@@ -776,21 +968,6 @@ export async function acceptInvitation(
                 invitation.role,
             },
           });
-
-        await tx.invitation.update({
-          where: {
-            id:
-              invitation.id,
-          },
-
-          data: {
-            status:
-              "ACCEPTED",
-
-            acceptedAt:
-              new Date(),
-          },
-        });
 
         /*
          * Cancel any other pending
@@ -820,7 +997,13 @@ export async function acceptInvitation(
           },
         });
 
-        return membership;
+        return {
+          membership,
+
+          alreadyMember:
+            existingMembership !==
+            null,
+        };
       }
     );
 
@@ -828,7 +1011,9 @@ export async function acceptInvitation(
     success: true,
 
     message:
-      `You joined ${invitation.workspace.name}.`,
+      result.alreadyMember
+        ? `You are already a member of ${invitation.workspace.name}.`
+        : `You joined ${invitation.workspace.name}.`,
 
     data: {
       workspace: {
@@ -846,11 +1031,14 @@ export async function acceptInvitation(
             .description,
 
         role:
-          result.role,
+          result.membership.role,
 
         joinedAt:
-          result.joinedAt,
+          result.membership.joinedAt,
       },
+
+      alreadyMember:
+        result.alreadyMember,
     },
   });
 }
@@ -881,22 +1069,115 @@ export async function declineInvitation(
   }
 
   const invitation =
-    await getUsableInvitation(
+    await getInvitationForUser(
       token,
       user.email
     );
 
-  await prisma.invitation.update({
-    where: {
-      id:
-        invitation.id,
-    },
+  /*
+   * Repeating a successful decline should
+   * remain successful rather than showing
+   * the user an unnecessary conflict.
+   */
+  if (
+    invitation.status ===
+    "DECLINED"
+  ) {
+    response.json({
+      success: true,
 
-    data: {
-      status:
-        "DECLINED",
-    },
-  });
+      message:
+        "Workspace invitation declined.",
+    });
+
+    return;
+  }
+
+  if (
+    invitation.status !==
+    "PENDING"
+  ) {
+    throwInvitationStateError(
+      invitation.status,
+      invitation.expiresAt
+    );
+  }
+
+  const now =
+    new Date();
+
+  /*
+   * Conditional update prevents a concurrent
+   * ACCEPT request from being overwritten by
+   * DECLINE (and vice versa).
+   */
+  const declined =
+    await prisma.invitation.updateMany({
+      where: {
+        id:
+          invitation.id,
+
+        status:
+          "PENDING",
+
+        expiresAt: {
+          gt:
+            now,
+        },
+      },
+
+      data: {
+        status:
+          "DECLINED",
+      },
+    });
+
+  if (
+    declined.count ===
+    0
+  ) {
+    const current =
+      await prisma.invitation.findUnique({
+        where: {
+          id:
+            invitation.id,
+        },
+
+        select: {
+          status: true,
+          expiresAt: true,
+        },
+      });
+
+    if (
+      !current
+    ) {
+      throw new AppError(
+        "Invitation not found.",
+        404,
+        "INVITATION_NOT_FOUND"
+      );
+    }
+
+    if (
+      current.status ===
+      "DECLINED"
+    ) {
+      response.json({
+        success: true,
+
+        message:
+          "Workspace invitation declined.",
+      });
+
+      return;
+    }
+
+    throwInvitationStateError(
+      current.status,
+      current.expiresAt
+    );
+  }
 
   response.json({
     success: true,
@@ -912,7 +1193,7 @@ export async function declineInvitation(
 |--------------------------------------------------------------------------
 */
 
-async function getUsableInvitation(
+async function getInvitationForUser(
   token: string,
   userEmail: string
 ) {
@@ -920,8 +1201,6 @@ async function getUsableInvitation(
     await prisma.invitation.findUnique({
       where: {
         token,
-  
-        
       },
 
       include: {
@@ -946,9 +1225,9 @@ async function getUsableInvitation(
 
   /*
    * Use the same error when the email
-   * does not match so we don't reveal
-   * invitation information to the
-   * wrong account.
+   * does not match so the protected
+   * action does not reveal invitation
+   * details to the wrong account.
    */
   if (
     !invitation ||
@@ -962,25 +1241,24 @@ async function getUsableInvitation(
     );
   }
 
+  /*
+   * Persist expiry before returning the
+   * invitation so every action sees the
+   * same state.
+   */
   if (
-    invitation.status !==
-    "PENDING"
-  ) {
-    throw new AppError(
-      `This invitation is ${invitation.status.toLowerCase()}.`,
-      409,
-      "INVITATION_NOT_PENDING"
-    );
-  }
-
-  if (
+    invitation.status ===
+      "PENDING" &&
     invitation.expiresAt <=
-    new Date()
+      new Date()
   ) {
-    await prisma.invitation.update({
+    await prisma.invitation.updateMany({
       where: {
         id:
           invitation.id,
+
+        status:
+          "PENDING",
       },
 
       data: {
@@ -989,6 +1267,50 @@ async function getUsableInvitation(
       },
     });
 
+    return {
+      ...invitation,
+
+      status:
+        "EXPIRED" as const,
+    };
+  }
+
+  return invitation;
+}
+
+function assertInvitationCanBeAccepted(
+  invitation: {
+    status: string;
+    expiresAt: Date;
+  }
+) {
+  if (
+    invitation.status ===
+    "PENDING"
+  ) {
+    return;
+  }
+
+  throwInvitationStateError(
+    invitation.status,
+    invitation.expiresAt
+  );
+}
+
+function throwInvitationStateError(
+  status: string,
+  expiresAt: Date
+): never {
+  if (
+    status ===
+      "EXPIRED" ||
+    (
+      status ===
+        "PENDING" &&
+      expiresAt <=
+        new Date()
+    )
+  ) {
     throw new AppError(
       "This invitation has expired.",
       410,
@@ -996,5 +1318,42 @@ async function getUsableInvitation(
     );
   }
 
-  return invitation;
+  if (
+    status ===
+    "DECLINED"
+  ) {
+    throw new AppError(
+      "This invitation has already been declined.",
+      409,
+      "INVITATION_DECLINED"
+    );
+  }
+
+  if (
+    status ===
+    "REVOKED"
+  ) {
+    throw new AppError(
+      "This invitation has been revoked.",
+      410,
+      "INVITATION_REVOKED"
+    );
+  }
+
+  if (
+    status ===
+    "ACCEPTED"
+  ) {
+    throw new AppError(
+      "This invitation has already been accepted.",
+      409,
+      "INVITATION_ACCEPTED"
+    );
+  }
+
+  throw new AppError(
+    "This invitation is no longer available.",
+    409,
+    "INVITATION_NOT_PENDING"
+  );
 }
