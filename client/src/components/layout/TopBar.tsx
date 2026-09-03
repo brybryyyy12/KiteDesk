@@ -19,6 +19,8 @@ import {
 
 import NotificationBell from "../notification/NotificationBell";
 
+import GlobalSearch from "./GlobalSearch";
+
 type TopbarProps = {
   isMenuOpen: boolean;
 
@@ -856,42 +858,7 @@ function Topbar({
         </div>
 
         {/* SEARCH */}
-        <div className="mx-auto hidden min-w-0 w-full max-w-[420px] xl:block">
-
-          <div className="relative">
-
-            <svg
-              viewBox="0 0 24 24"
-              fill="none"
-              stroke="currentColor"
-              strokeWidth="1.7"
-              className="absolute left-4 top-1/2 h-4.5 w-4.5 -translate-y-1/2 text-kite-faint"
-              aria-hidden="true"
-            >
-
-              <circle
-                cx="11"
-                cy="11"
-                r="7"
-              />
-
-              <path d="m20 20-4-4" />
-
-            </svg>
-
-            <input
-              type="search"
-              aria-label="Search KiteDesk"
-              placeholder="Search KiteDesk..."
-              className="w-full rounded-xl border border-kite-line bg-kite-soft py-2.5 pl-11 pr-4 text-sm text-kite-ink outline-none transition placeholder:text-kite-faint focus:border-kite-blue focus:bg-white focus:ring-4 focus:ring-kite-blue-wash"
-            />
-
-          </div>
-
-        </div>
-
-        {/* FLEX SPACER WHEN SEARCH IS HIDDEN */}
-        <div className="min-w-0 flex-1 xl:hidden" />
+        <GlobalSearch />
 
         {/* RIGHT SIDE */}
         <div className="ml-auto flex shrink-0 items-center gap-1.5 sm:gap-2">

@@ -23,6 +23,10 @@ import {
 } from "../controllers/workspace-member.controller.js";
 
 import {
+  searchWorkspace,
+} from "../controllers/search.controller.js";
+
+import {
   requireAuth,
 } from "../middleware/auth.middleware.js";
 
@@ -219,6 +223,24 @@ router.delete(
 
   asyncHandler(
     revokeInvitation
+  )
+);
+
+/*
+|--------------------------------------------------------------------------
+| GLOBAL SEARCH
+|--------------------------------------------------------------------------
+*/
+
+router.get(
+  "/:workspaceId/search",
+
+  asyncHandler(
+    requireWorkspaceMembership
+  ),
+
+  asyncHandler(
+    searchWorkspace
   )
 );
 
