@@ -36,6 +36,7 @@ import {
   hasPermission,
 } from "../../lib/permissions";
 import { labelService, type ApiLabel } from "../../services/label.service";
+import { taskService } from "../../services/task.service";
 
 const statuses: TaskStatus[] = [
   "To Do",
@@ -185,6 +186,20 @@ function TaskDetailsPage() {
   const [newLabelName, setNewLabelName] = useState("");
   const [newLabelColor, setNewLabelColor] = useState("#6E94B0");
   const [deletingLabelId, setDeletingLabelId] = useState<string | null>(null);
+  const [newSubtaskTitle, setNewSubtaskTitle] = useState("");
+  const [newChecklistTitle, setNewChecklistTitle] = useState("");
+  const [structureBusy, setStructureBusy] = useState(false);
+  const [structureError, setStructureError] = useState("");
+
+  const canManageChecklist =
+    canEditAnyTask ||
+    Boolean(
+      task &&
+      (
+        task.parentTaskId !== null ||
+        (user && task.assignee?.id === user.id)
+      )
+    );
 
   useEffect(() => {
     if (!workspace) {
@@ -259,6 +274,45 @@ function TaskDetailsPage() {
     } finally {
       setDeletingLabelId(null);
     }
+  };
+
+  const addSubtask = async () => {
+    if (!workspace || !task || !newSubtaskTitle.trim()) return;
+    setStructureBusy(true); setStructureError("");
+    try {
+      await taskService.createSubtask(workspace.id, task.projectId, task.id, newSubtaskTitle.trim());
+      setNewSubtaskTitle("");
+      await refreshTask(task.id, task.projectId);
+    } catch (error) { setStructureError(error instanceof Error ? error.message : "Unable to add subtask."); }
+    finally { setStructureBusy(false); }
+  };
+
+  const addChecklistItem = async () => {
+    if (!workspace || !task || !newChecklistTitle.trim()) return;
+    setStructureBusy(true); setStructureError("");
+    try {
+      await taskService.createChecklistItem(workspace.id, task.projectId, task.id, newChecklistTitle.trim());
+      setNewChecklistTitle("");
+      await refreshTask(task.id, task.projectId);
+    } catch (error) { setStructureError(error instanceof Error ? error.message : "Unable to add checklist item."); }
+    finally { setStructureBusy(false); }
+  };
+
+  const toggleChecklistItem = async (itemId: string, isCompleted: boolean) => {
+    if (!workspace || !task) return;
+    setStructureError("");
+    try {
+      await taskService.updateChecklistItem(workspace.id, task.projectId, task.id, itemId, isCompleted);
+      await refreshTask(task.id, task.projectId);
+    } catch (error) { setStructureError(error instanceof Error ? error.message : "Unable to update checklist."); }
+  };
+
+  const removeChecklistItem = async (itemId: string) => {
+    if (!workspace || !task || !window.confirm("Delete this checklist item?")) return;
+    try {
+      await taskService.deleteChecklistItem(workspace.id, task.projectId, task.id, itemId);
+      await refreshTask(task.id, task.projectId);
+    } catch (error) { setStructureError(error instanceof Error ? error.message : "Unable to delete checklist item."); }
   };
 
   const canDeleteTask =
@@ -1618,6 +1672,49 @@ function TaskDetailsPage() {
 
             </section>
           )}
+
+          {/* SUBTASKS AND CHECKLIST */}
+          <section className="rounded-2xl border border-kite-line bg-white p-4 sm:p-5">
+            <h3 className="text-sm font-semibold text-kite-ink">Subtasks</h3>
+            <div className="mt-3 space-y-2">
+              {task.subtasks.map((subtask) => (
+                <button key={subtask.id} type="button" onClick={() => navigate(`/projects/${subtask.projectId}/tasks/${subtask.id}`)} className="flex w-full items-center justify-between rounded-xl bg-kite-soft px-3 py-2.5 text-left text-sm">
+                  <span className="truncate text-kite-ink">{subtask.title}</span>
+                  <span className="ml-3 shrink-0 text-xs text-kite-muted">{subtask.status}</span>
+                </button>
+              ))}
+              {task.subtasks.length === 0 && <p className="text-sm text-kite-faint">No subtasks yet.</p>}
+            </div>
+            {canEditAnyTask && (
+              <div className="mt-3 flex gap-2">
+                <input value={newSubtaskTitle} onChange={(event) => setNewSubtaskTitle(event.target.value)} maxLength={200} placeholder="Add a subtask" className="min-w-0 flex-1 rounded-xl border border-kite-line bg-kite-soft px-3 py-2 text-sm outline-none" />
+                <button type="button" disabled={structureBusy || !newSubtaskTitle.trim()} onClick={() => void addSubtask()} className="rounded-xl bg-kite-blue-deep px-4 py-2 text-sm font-medium text-white disabled:opacity-50">Add</button>
+              </div>
+            )}
+
+            <div className="my-5 border-t border-kite-line" />
+            <div className="flex items-center justify-between gap-3">
+              <h3 className="text-sm font-semibold text-kite-ink">Checklist</h3>
+              <span className="text-xs text-kite-muted">{task.checklistItems.filter((item) => item.isCompleted).length}/{task.checklistItems.length} complete</span>
+            </div>
+            <div className="mt-3 space-y-2">
+              {task.checklistItems.map((item) => (
+                <div key={item.id} className="flex items-center gap-3 rounded-xl bg-kite-soft px-3 py-2.5">
+                  <input type="checkbox" checked={item.isCompleted} onChange={(event) => void toggleChecklistItem(item.id, event.target.checked)} className="h-4 w-4 accent-[#6E94B0]" />
+                  <span className={`min-w-0 flex-1 text-sm ${item.isCompleted ? "text-kite-faint line-through" : "text-kite-ink"}`}>{item.title}</span>
+                  {canManageChecklist && <button type="button" onClick={() => void removeChecklistItem(item.id)} aria-label={`Delete ${item.title}`} className="text-xs text-red-500">Delete</button>}
+                </div>
+              ))}
+              {task.checklistItems.length === 0 && <p className="text-sm text-kite-faint">No checklist items yet.</p>}
+            </div>
+            {canManageChecklist && (
+              <div className="mt-3 flex gap-2">
+                <input value={newChecklistTitle} onChange={(event) => setNewChecklistTitle(event.target.value)} maxLength={200} placeholder="Add a checklist item" className="min-w-0 flex-1 rounded-xl border border-kite-line bg-kite-soft px-3 py-2 text-sm outline-none" />
+                <button type="button" disabled={structureBusy || !newChecklistTitle.trim()} onClick={() => void addChecklistItem()} className="rounded-xl bg-kite-blue-deep px-4 py-2 text-sm font-medium text-white disabled:opacity-50">Add</button>
+              </div>
+            )}
+            {structureError && <p className="mt-3 text-xs text-red-600" role="alert">{structureError}</p>}
+          </section>
 
           {/* ATTACHMENTS */}
           <section className="min-w-0 rounded-2xl border border-kite-line bg-white">

@@ -35,6 +35,9 @@ export type ApiTaskLabel = {
   color: string;
 };
 
+export type ApiSubtask = { id: string; projectId: string; title: string; status: ApiTaskStatus; priority: ApiTaskPriority; dueDate: string | null };
+export type ApiChecklistItem = { id: string; title: string; isCompleted: boolean; createdAt: string };
+
 export type ApiTaskComment = {
   id: string;
 
@@ -135,6 +138,8 @@ export type ApiTaskDetail = {
 
   projectId: string;
 
+  parentTaskId: string | null;
+
   title: string;
 
   description:
@@ -176,6 +181,10 @@ export type ApiTaskDetail = {
     ApiTaskActivity[];
 
   labels: ApiTaskLabel[];
+
+  subtasks: ApiSubtask[];
+
+  checklistItems: ApiChecklistItem[];
 };
 
 export type CreateApiTaskInput = {
@@ -434,5 +443,21 @@ export const taskService = {
         method: "DELETE",
       }
     );
+  },
+
+  createSubtask(workspaceId: string, projectId: string, taskId: string, title: string) {
+    return apiFetch<{ success: true; data: { subtask: ApiSubtask } }>(`/workspaces/${workspaceId}/projects/${projectId}/tasks/${taskId}/subtasks`, { method: "POST", body: { title } });
+  },
+
+  createChecklistItem(workspaceId: string, projectId: string, taskId: string, title: string) {
+    return apiFetch<{ success: true; data: { item: ApiChecklistItem } }>(`/workspaces/${workspaceId}/projects/${projectId}/tasks/${taskId}/checklist`, { method: "POST", body: { title } });
+  },
+
+  updateChecklistItem(workspaceId: string, projectId: string, taskId: string, itemId: string, isCompleted: boolean) {
+    return apiFetch<{ success: true; data: { item: ApiChecklistItem } }>(`/workspaces/${workspaceId}/projects/${projectId}/tasks/${taskId}/checklist/${itemId}`, { method: "PATCH", body: { isCompleted } });
+  },
+
+  deleteChecklistItem(workspaceId: string, projectId: string, taskId: string, itemId: string) {
+    return apiFetch<{ success: true; message: string }>(`/workspaces/${workspaceId}/projects/${projectId}/tasks/${taskId}/checklist/${itemId}`, { method: "DELETE" });
   },
 };

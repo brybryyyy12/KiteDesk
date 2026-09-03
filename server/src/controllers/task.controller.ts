@@ -496,6 +496,8 @@ export async function getTasks(
         projectId:
           project.id,
 
+        parentTaskId: null,
+
         ...(query.status && {
           status:
             query.status,
@@ -1424,6 +1426,14 @@ async function getTaskDetails(
       },
 
       include: {
+        subtasks: {
+          select: { id: true, projectId: true, title: true, status: true, priority: true, dueDate: true },
+          orderBy: { createdAt: "asc" },
+        },
+        checklistItems: {
+          select: { id: true, title: true, isCompleted: true, createdAt: true },
+          orderBy: { createdAt: "asc" },
+        },
         labels: {
           select: { label: { select: { id: true, name: true, color: true } } },
         },
@@ -1507,6 +1517,9 @@ async function getTaskDetails(
     projectId:
       task.projectId,
 
+    parentTaskId:
+      task.parentTaskId,
+
     title:
       task.title,
 
@@ -1534,6 +1547,10 @@ async function getTaskDetails(
       ),
 
     labels: task.labels.map((item) => item.label),
+
+    subtasks: task.subtasks.map((subtask) => ({ ...subtask, dueDate: formatDateOnly(subtask.dueDate) })),
+
+    checklistItems: task.checklistItems,
 
     createdAt:
       task.createdAt,

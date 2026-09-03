@@ -203,7 +203,7 @@ Authentication is handled using JWTs stored in HttpOnly cookies.
 * [x] Global search
 * [x] Advanced task filtering
 * [x] Labels and tags
-* [ ] Subtasks and checklists
+* [x] Subtasks and checklists
 * [ ] Project archiving
 
 ### Collaboration

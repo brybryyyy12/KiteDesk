@@ -8,6 +8,7 @@ declare global {
         jobTitle: string | null;
         createdAt: Date;
         updatedAt: Date;
+
       };
 
       workspace?: {
@@ -98,6 +99,8 @@ declare global {
         dueDate:
           | Date
           | null;
+
+        parentTaskId: string | null;
 
         createdAt: Date;
         updatedAt: Date;

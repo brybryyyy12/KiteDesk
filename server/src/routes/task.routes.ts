@@ -46,6 +46,7 @@ import {
 import {
   asyncHandler,
 } from "../utils/asyncHandler.js";
+import { createChecklistItem, createSubtask, deleteChecklistItem, updateChecklistItem } from "../controllers/task-structure.controller.js";
 
 const router =
   Router({
@@ -136,6 +137,11 @@ router.post(
     createTaskComment
   )
 );
+
+router.post("/:taskId/subtasks", asyncHandler(requireTask), requireWorkspaceRole("OWNER", "MANAGER"), asyncHandler(createSubtask));
+router.post("/:taskId/checklist", asyncHandler(requireTask), asyncHandler(createChecklistItem));
+router.patch("/:taskId/checklist/:checklistItemId", asyncHandler(requireTask), asyncHandler(updateChecklistItem));
+router.delete("/:taskId/checklist/:checklistItemId", asyncHandler(requireTask), asyncHandler(deleteChecklistItem));
 
 /*
 |--------------------------------------------------------------------------

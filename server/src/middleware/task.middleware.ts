@@ -120,6 +120,9 @@ export async function requireTask(
 
     updatedAt:
       task.updatedAt,
+
+    parentTaskId:
+      task.parentTaskId,
   };
 
   next();

@@ -64,6 +64,8 @@ export type TaskType =
   | "Bug";
 
 export type TaskLabel = { id: string; name: string; color: string };
+export type Subtask = { id: string; projectId: string; title: string; status: TaskStatus; priority: TaskPriority; dueDate: string | null };
+export type ChecklistItem = { id: string; title: string; isCompleted: boolean; createdAt: string };
 
 export type TaskComment = {
   id: string;
@@ -122,6 +124,8 @@ export type ProjectTask = {
 
   projectId: string;
 
+  parentTaskId: string | null;
+
   title: string;
 
   description: string;
@@ -163,6 +167,10 @@ export type ProjectTask = {
     TaskActivity[];
 
   labels: TaskLabel[];
+
+  subtasks: Subtask[];
+
+  checklistItems: ChecklistItem[];
 };
 
 export type CreateTaskData = {
@@ -614,6 +622,8 @@ function mapListTask(
     projectId:
       task.projectId,
 
+    parentTaskId: null,
+
     title:
       task.title,
 
@@ -669,6 +679,10 @@ function mapListTask(
     activity: [],
 
     labels: task.labels,
+
+    subtasks: [],
+
+    checklistItems: [],
   };
 }
 
@@ -688,6 +702,8 @@ function mapDetailedTask(
 
     projectId:
       task.projectId,
+
+    parentTaskId: task.parentTaskId,
 
     title:
       task.title,
@@ -832,6 +848,10 @@ function mapDetailedTask(
       ),
 
     labels: task.labels,
+
+    subtasks: task.subtasks.map((subtask) => ({ ...subtask, status: fromApiStatus(subtask.status), priority: fromApiPriority(subtask.priority) })),
+
+    checklistItems: task.checklistItems,
   };
 }
 
