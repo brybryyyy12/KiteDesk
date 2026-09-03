@@ -25,6 +25,7 @@ import {
 import {
   searchWorkspace,
 } from "../controllers/search.controller.js";
+import { createLabel, deleteLabel, getLabels } from "../controllers/label.controller.js";
 
 import {
   requireAuth,
@@ -243,6 +244,10 @@ router.get(
     searchWorkspace
   )
 );
+
+router.get("/:workspaceId/labels", asyncHandler(requireWorkspaceMembership), asyncHandler(getLabels));
+router.post("/:workspaceId/labels", asyncHandler(requireWorkspaceMembership), requireWorkspaceRole("OWNER", "MANAGER"), asyncHandler(createLabel));
+router.delete("/:workspaceId/labels/:labelId", asyncHandler(requireWorkspaceMembership), requireWorkspaceRole("OWNER", "MANAGER"), asyncHandler(deleteLabel));
 
 /*
 |--------------------------------------------------------------------------

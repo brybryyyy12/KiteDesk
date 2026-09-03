@@ -207,6 +207,8 @@ model Workspace {
 
   notifications Notification[]
 
+  labels Label[]
+
   @@index([createdById])
   @@map("workspaces")
 }
@@ -299,6 +301,33 @@ model Project {
   @@map("projects")
 }
 
+model Label {
+  id          String   @id @default(uuid()) @db.Uuid
+  workspaceId String   @map("workspace_id") @db.Uuid
+  name        String   @db.VarChar(40)
+  color       String   @db.VarChar(7)
+  createdAt   DateTime @default(now()) @map("created_at")
+
+  workspace Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  tasks TaskLabel[]
+
+  @@unique([workspaceId, name])
+  @@index([workspaceId])
+  @@map("labels")
+}
+
+model TaskLabel {
+  taskId  String @map("task_id") @db.Uuid
+  labelId String @map("label_id") @db.Uuid
+
+  task  Task  @relation(fields: [taskId], references: [id], onDelete: Cascade)
+  label Label @relation(fields: [labelId], references: [id], onDelete: Cascade)
+
+  @@id([taskId, labelId])
+  @@index([labelId])
+  @@map("task_labels")
+}
+
 /**
  * |--------------------------------------------------------------------------
  * | PROJECT MEMBER
@@ -357,6 +386,8 @@ model Task {
   activities ActivityLog[]
 
   notifications Notification[]
+
+  labels TaskLabel[]
 
   @@index([projectId])
   @@index([projectId, status])

@@ -63,6 +63,8 @@ export type TaskType =
   | "Feature"
   | "Bug";
 
+export type TaskLabel = { id: string; name: string; color: string };
+
 export type TaskComment = {
   id: string;
 
@@ -159,6 +161,8 @@ export type ProjectTask = {
 
   activity:
     TaskActivity[];
+
+  labels: TaskLabel[];
 };
 
 export type CreateTaskData = {
@@ -663,6 +667,8 @@ function mapListTask(
     attachments: [],
 
     activity: [],
+
+    labels: task.labels,
   };
 }
 
@@ -824,6 +830,8 @@ function mapDetailedTask(
             activity.createdAt,
         })
       ),
+
+    labels: task.labels,
   };
 }
 
@@ -1464,6 +1472,7 @@ export function TaskProvider({
         dueDate?:
           | string
           | null;
+        labelIds?: string[];
       } = {};
 
       if (
@@ -1518,6 +1527,10 @@ export function TaskProvider({
       ) {
         detailsInput.dueDate =
           data.dueDate;
+      }
+
+      if (data.labels !== undefined) {
+        detailsInput.labelIds = data.labels.map((label) => label.id);
       }
 
       if (

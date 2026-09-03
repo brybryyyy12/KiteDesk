@@ -136,6 +136,8 @@ const updateTaskSchema =
         dateSchema
           .nullable()
           .optional(),
+
+      labelIds: z.array(z.string().uuid("Invalid label ID.")).max(20).optional(),
     })
     .refine(
       (data) =>
@@ -546,6 +548,9 @@ export async function getTasks(
       },
 
       include: {
+        labels: {
+          select: { label: { select: { id: true, name: true, color: true } } },
+        },
         assignee: {
           select: {
             id: true,
@@ -631,6 +636,8 @@ export async function getTasks(
             attachmentCount:
               task._count
                 .attachments,
+
+            labels: task.labels.map((item) => item.label),
 
             createdAt:
               task.createdAt,
@@ -744,6 +751,15 @@ export async function updateTask(
   const oldAssigneeId =
     task.assigneeId;
 
+  if (data.labelIds) {
+    const labelCount = await prisma.label.count({
+      where: { id: { in: data.labelIds }, workspaceId: workspace.id },
+    });
+    if (labelCount !== new Set(data.labelIds).size) {
+      throw new AppError("One or more labels do not belong to this workspace.", 400, "INVALID_TASK_LABEL");
+    }
+  }
+
   const assigneeChanged =
     data.assigneeId !==
       undefined &&
@@ -764,6 +780,8 @@ export async function updateTask(
     data.type !==
       undefined ||
     data.dueDate !==
+      undefined ||
+    data.labelIds !==
       undefined;
 
   await prisma.$transaction(
@@ -812,6 +830,13 @@ export async function updateTask(
               toDateOnly(
                 data.dueDate
               ),
+          }),
+
+          ...(data.labelIds !== undefined && {
+            labels: {
+              deleteMany: {},
+              create: [...new Set(data.labelIds)].map((labelId) => ({ labelId })),
+            },
           }),
         },
       });
@@ -1399,6 +1424,9 @@ async function getTaskDetails(
       },
 
       include: {
+        labels: {
+          select: { label: { select: { id: true, name: true, color: true } } },
+        },
         assignee: {
           select: {
             id: true,
@@ -1504,6 +1532,8 @@ async function getTaskDetails(
       formatDateOnly(
         task.dueDate
       ),
+
+    labels: task.labels.map((item) => item.label),
 
     createdAt:
       task.createdAt,

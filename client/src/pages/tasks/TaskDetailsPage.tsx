@@ -35,6 +35,7 @@ import {
 import {
   hasPermission,
 } from "../../lib/permissions";
+import { labelService, type ApiLabel } from "../../services/label.service";
 
 const statuses: TaskStatus[] = [
   "To Do",
@@ -177,6 +178,88 @@ function TaskDetailsPage() {
       role,
       "editAnyTask"
     );
+
+  const [availableLabels, setAvailableLabels] = useState<ApiLabel[]>([]);
+  const [labelsLoading, setLabelsLoading] = useState(false);
+  const [labelError, setLabelError] = useState("");
+  const [newLabelName, setNewLabelName] = useState("");
+  const [newLabelColor, setNewLabelColor] = useState("#6E94B0");
+  const [deletingLabelId, setDeletingLabelId] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!workspace) {
+      setAvailableLabels([]);
+      return;
+    }
+
+    let active = true;
+    setLabelsLoading(true);
+    labelService.getAll(workspace.id)
+      .then((response) => {
+        if (active) setAvailableLabels(response.data.labels);
+      })
+      .catch((error) => {
+        if (active) setLabelError(error instanceof Error ? error.message : "Unable to load labels.");
+      })
+      .finally(() => {
+        if (active) setLabelsLoading(false);
+      });
+
+    return () => { active = false; };
+  }, [workspace?.id]);
+
+  const toggleLabel = async (label: ApiLabel) => {
+    if (!task) return;
+    setLabelError("");
+    const selected = task.labels.some((item) => item.id === label.id);
+    try {
+      await updateTask(task.id, {
+        labels: selected
+          ? task.labels.filter((item) => item.id !== label.id)
+          : [...task.labels, label],
+      });
+    } catch (error) {
+      setLabelError(error instanceof Error ? error.message : "Unable to update labels.");
+    }
+  };
+
+  const createLabel = async () => {
+    if (!workspace || !newLabelName.trim()) return;
+    setLabelError("");
+    try {
+      const response = await labelService.create(workspace.id, {
+        name: newLabelName.trim(),
+        color: newLabelColor,
+      });
+      setAvailableLabels((current) => [...current, response.data.label].sort((a, b) => a.name.localeCompare(b.name)));
+      setNewLabelName("");
+    } catch (error) {
+      setLabelError(error instanceof Error ? error.message : "Unable to create label.");
+    }
+  };
+
+  const deleteLabel = async (label: ApiLabel) => {
+    if (!workspace || !task) return;
+
+    const confirmed = window.confirm(
+      `Delete the label "${label.name}"? It will be removed from every task in this workspace.`
+    );
+
+    if (!confirmed) return;
+
+    setDeletingLabelId(label.id);
+    setLabelError("");
+
+    try {
+      await labelService.remove(workspace.id, label.id);
+      setAvailableLabels((current) => current.filter((item) => item.id !== label.id));
+      await refreshTask(task.id, task.projectId);
+    } catch (error) {
+      setLabelError(error instanceof Error ? error.message : "Unable to delete label.");
+    } finally {
+      setDeletingLabelId(null);
+    }
+  };
 
   const canDeleteTask =
     hasPermission(
@@ -2278,6 +2361,83 @@ function TaskDetailsPage() {
                   </p>
                 )}
 
+              </div>
+
+              {/* LABELS */}
+              <div className="min-w-0 sm:col-span-2 xl:col-span-2">
+                <p className="mb-2 text-[10px] font-medium uppercase tracking-wide text-kite-faint sm:text-xs">
+                  Labels
+                </p>
+
+                <div className="flex flex-wrap gap-2">
+                  {availableLabels.map((label) => {
+                    const selected = task.labels.some((item) => item.id === label.id);
+                    return (
+                      <span key={label.id} className="inline-flex items-center overflow-hidden rounded-full border" style={{ borderColor: label.color }}>
+                        <button
+                          type="button"
+                          disabled={!canEditAnyTask || updatingField !== null || deletingLabelId !== null}
+                          onClick={() => void toggleLabel(label)}
+                          aria-pressed={selected}
+                          className={`px-2.5 py-1 text-xs font-medium transition disabled:cursor-default ${selected ? "text-white" : "bg-white text-kite-muted"}`}
+                          style={selected ? { backgroundColor: label.color } : undefined}
+                        >
+                          {label.name}
+                        </button>
+
+                        {canEditAnyTask && (
+                          <button
+                            type="button"
+                            onClick={() => void deleteLabel(label)}
+                            disabled={deletingLabelId !== null}
+                            aria-label={`Delete ${label.name} label`}
+                            title={`Delete ${label.name}`}
+                            className="border-l px-2 py-1 text-xs font-semibold text-kite-muted transition hover:bg-red-50 hover:text-red-600 disabled:opacity-50"
+                            style={{ borderColor: label.color }}
+                          >
+                            {deletingLabelId === label.id ? "…" : "×"}
+                          </button>
+                        )}
+                      </span>
+                    );
+                  })}
+
+                  {!labelsLoading && availableLabels.length === 0 && (
+                    <span className="text-sm text-kite-faint">No labels yet</span>
+                  )}
+                  {labelsLoading && <span className="text-sm text-kite-faint">Loading labels...</span>}
+                </div>
+
+                {canEditAnyTask && (
+                  <div className="mt-3 flex flex-wrap gap-2">
+                    <input
+                      type="text"
+                      value={newLabelName}
+                      maxLength={40}
+                      onChange={(event) => setNewLabelName(event.target.value)}
+                      placeholder="New label name"
+                      aria-label="New label name"
+                      className="min-w-0 flex-1 rounded-xl border border-kite-line bg-kite-soft px-3 py-2 text-sm outline-none focus:border-kite-blue focus:ring-4 focus:ring-kite-blue-wash"
+                    />
+                    <input
+                      type="color"
+                      value={newLabelColor}
+                      onChange={(event) => setNewLabelColor(event.target.value)}
+                      aria-label="Label color"
+                      className="h-10 w-12 rounded-lg border border-kite-line bg-white p-1"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => void createLabel()}
+                      disabled={!newLabelName.trim()}
+                      className="rounded-xl bg-kite-blue-deep px-4 py-2 text-sm font-medium text-white disabled:opacity-50"
+                    >
+                      Add label
+                    </button>
+                  </div>
+                )}
+
+                {labelError && <p className="mt-2 text-xs text-red-600" role="alert">{labelError}</p>}
               </div>
 
               {/* CREATED BY */}

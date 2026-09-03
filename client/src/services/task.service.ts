@@ -29,6 +29,12 @@ export type ApiTaskUser = {
   jobTitle?: string | null;
 };
 
+export type ApiTaskLabel = {
+  id: string;
+  name: string;
+  color: string;
+};
+
 export type ApiTaskComment = {
   id: string;
 
@@ -120,6 +126,8 @@ export type ApiTaskListItem = {
   createdAt: string;
 
   updatedAt: string;
+
+  labels: ApiTaskLabel[];
 };
 
 export type ApiTaskDetail = {
@@ -166,6 +174,8 @@ export type ApiTaskDetail = {
 
   activity:
     ApiTaskActivity[];
+
+  labels: ApiTaskLabel[];
 };
 
 export type CreateApiTaskInput = {
@@ -208,6 +218,8 @@ export type UpdateApiTaskInput = {
   dueDate?:
     | string
     | null;
+
+  labelIds?: string[];
 };
 
 export type UpdateApiTaskStatusInput = {
