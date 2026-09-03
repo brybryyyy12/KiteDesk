@@ -33,6 +33,7 @@ import {
 
 import {
   requireProjectAccess,
+  requireActiveProject,
 } from "../middleware/project.middleware.js";
 
 import {
@@ -74,6 +75,11 @@ router.use(
     requireProjectAccess
   )
 );
+
+router.use((request, response, next) => {
+  if (request.method === "GET") return next();
+  return requireActiveProject(request, response, next);
+});
 
 /*
 |--------------------------------------------------------------------------

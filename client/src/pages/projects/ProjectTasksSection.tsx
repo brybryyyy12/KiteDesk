@@ -110,31 +110,31 @@ function ProjectTasksSection({
     hasPermission(
       role,
       "createTask"
-    );
+    ) && !project.archivedAt;
 
   const canEditAnyTask =
     hasPermission(
       role,
       "editAnyTask"
-    );
+    ) && !project.archivedAt;
 
   const canReviewTask =
     hasPermission(
       role,
       "reviewTask"
-    );
+    ) && !project.archivedAt;
 
   const canDeleteTask =
     hasPermission(
       role,
       "deleteTask"
-    );
+    ) && !project.archivedAt;
 
   const canUpdateOwnTask =
     hasPermission(
       role,
       "updateOwnTask"
-    );
+    ) && !project.archivedAt;
 
   /*
   |--------------------------------------------------------------------------

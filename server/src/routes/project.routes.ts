@@ -8,6 +8,8 @@ import {
   getProject,
   getProjects,
   updateProject,
+  archiveProject,
+  restoreProject,
 } from "../controllers/project.controller.js";
 
 import {
@@ -27,6 +29,7 @@ import {
 
 import {
   requireProjectAccess,
+  requireActiveProject,
 } from "../middleware/project.middleware.js";
 
 import {
@@ -126,6 +129,7 @@ router.post(
     "OWNER",
     "MANAGER"
   ),
+  requireActiveProject,
 
   asyncHandler(
     addProjectMembers
@@ -143,6 +147,7 @@ router.delete(
     "OWNER",
     "MANAGER"
   ),
+  requireActiveProject,
 
   asyncHandler(
     removeProjectMember
@@ -187,11 +192,15 @@ router.patch(
     "OWNER",
     "MANAGER"
   ),
+  requireActiveProject,
 
   asyncHandler(
     updateProject
   )
 );
+
+router.patch("/:projectId/archive", asyncHandler(requireProjectAccess), requireWorkspaceRole("OWNER", "MANAGER"), asyncHandler(archiveProject));
+router.patch("/:projectId/restore", asyncHandler(requireProjectAccess), requireWorkspaceRole("OWNER", "MANAGER"), asyncHandler(restoreProject));
 
 /*
 |--------------------------------------------------------------------------
@@ -212,6 +221,7 @@ router.delete(
   requireWorkspaceRole(
     "OWNER"
   ),
+  requireActiveProject,
 
   asyncHandler(
     deleteProject

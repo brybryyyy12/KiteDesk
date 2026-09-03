@@ -198,15 +198,18 @@ function DashboardPage() {
           return [];
         }
 
+        const activeProjectIds = new Set(projects.map((project) => project.id));
         return tasks.filter(
           (task) =>
             task.assignee?.id ===
-            user.id
+            user.id &&
+            activeProjectIds.has(task.projectId)
         );
       },
       [
         tasks,
         user,
+        projects,
       ]
     );
 

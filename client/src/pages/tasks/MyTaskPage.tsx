@@ -63,11 +63,13 @@ function MyTasksPage() {
       return [];
     }
 
+    const activeProjectIds = new Set(projects.map((project) => project.id));
     return tasks.filter(
       (task) =>
-        task.assignee?.id === user.id
+        task.assignee?.id === user.id &&
+        activeProjectIds.has(task.projectId)
     );
-  }, [tasks, user]);
+  }, [tasks, user, projects]);
 
   /*
   |--------------------------------------------------------------------------

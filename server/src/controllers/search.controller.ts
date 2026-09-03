@@ -62,6 +62,7 @@ export async function searchWorkspace(
   const accessibleProjectWhere = {
     workspaceId:
       workspace.id,
+    archivedAt: null,
 
     ...(membership.role ===
       "MEMBER" && {

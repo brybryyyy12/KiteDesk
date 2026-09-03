@@ -178,7 +178,7 @@ function TaskDetailsPage() {
     hasPermission(
       role,
       "editAnyTask"
-    );
+    ) && !project?.archivedAt;
 
   const [availableLabels, setAvailableLabels] = useState<ApiLabel[]>([]);
   const [labelsLoading, setLabelsLoading] = useState(false);
@@ -192,14 +192,14 @@ function TaskDetailsPage() {
   const [structureError, setStructureError] = useState("");
 
   const canManageChecklist =
-    canEditAnyTask ||
+    !project?.archivedAt && (canEditAnyTask ||
     Boolean(
       task &&
       (
         task.parentTaskId !== null ||
         (user && task.assignee?.id === user.id)
       )
-    );
+    ));
 
   useEffect(() => {
     if (!workspace) {
@@ -319,19 +319,19 @@ function TaskDetailsPage() {
     hasPermission(
       role,
       "deleteTask"
-    );
+    ) && !project?.archivedAt;
 
   const canReviewTask =
     hasPermission(
       role,
       "reviewTask"
-    );
+    ) && !project?.archivedAt;
 
   const canAssignTask =
     hasPermission(
       role,
       "assignTask"
-    );
+    ) && !project?.archivedAt;
 
   const canUpdateOwnTask =
     Boolean(
@@ -342,7 +342,8 @@ function TaskDetailsPage() {
         "updateOwnTask"
       ) &&
       task.assignee?.id ===
-        user.id
+        user.id &&
+      !project?.archivedAt
     );
 
   const canUpdateStatus =

@@ -77,6 +77,8 @@ function ProjectSettingsSection({
   const {
     updateProject,
     deleteProject,
+    archiveProject,
+    restoreProject,
     refreshProjects,
   } =
     useProjects();
@@ -474,6 +476,36 @@ function ProjectSettingsSection({
     !canManageProject
   ) {
     return null;
+  }
+
+  const handleArchiveProject = async () => {
+    if (!window.confirm(`Archive "${project.name}"? The project will become read-only.`)) return;
+    try {
+      await archiveProject(project.id);
+      navigate("/projects");
+    } catch (error) {
+      setSaveError(getErrorMessage(error));
+    }
+  };
+
+  const handleRestoreProject = async () => {
+    try {
+      await restoreProject(project.id);
+      navigate(`/projects/${project.id}`);
+    } catch (error) {
+      setSaveError(getErrorMessage(error));
+    }
+  };
+
+  if (project.archivedAt) {
+    return (
+      <section className="rounded-2xl border border-amber-200 bg-amber-50 p-5">
+        <h3 className="font-semibold text-amber-900">Archived project</h3>
+        <p className="mt-2 text-sm text-amber-800">This project is read-only. Restore it to make changes or create tasks.</p>
+        {saveError && <p className="mt-3 text-sm text-red-600">{saveError}</p>}
+        <button type="button" onClick={() => void handleRestoreProject()} className="mt-4 rounded-xl bg-kite-blue-deep px-4 py-2.5 text-sm font-medium text-white">Restore Project</button>
+      </section>
+    );
   }
 
   /*
@@ -1455,6 +1487,12 @@ function ProjectSettingsSection({
 
             </div>
 
+          </section>
+
+          <section className="rounded-2xl border border-amber-200 bg-amber-50 p-5">
+            <h3 className="text-sm font-semibold text-amber-900">Archive project</h3>
+            <p className="mt-2 text-xs leading-5 text-amber-800">Preserve all project data while removing it from active views and preventing changes.</p>
+            <button type="button" onClick={() => void handleArchiveProject()} className="mt-4 rounded-xl border border-amber-300 bg-white px-4 py-2.5 text-sm font-medium text-amber-800">Archive Project</button>
           </section>
 
           {/* DANGER ZONE */}

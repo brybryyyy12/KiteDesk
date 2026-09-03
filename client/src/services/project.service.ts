@@ -55,6 +55,10 @@ export type ApiProject = {
 
   updatedAt: string;
 
+  archivedAt: string | null;
+  archivedById: string | null;
+  archivedBy: { id: string; name: string } | null;
+
   totalTasks: number;
 
   completedTasks: number;
@@ -124,10 +128,11 @@ type DeleteProjectResponse = {
 
 export const projectService = {
   getAll(
-    workspaceId: string
+    workspaceId: string,
+    archived = false
   ) {
     return apiFetch<ProjectsResponse>(
-      `/workspaces/${workspaceId}/projects`
+      `/workspaces/${workspaceId}/projects?archived=${archived}`
     );
   },
 
@@ -179,5 +184,13 @@ export const projectService = {
         method: "DELETE",
       }
     );
+  },
+
+  archive(workspaceId: string, projectId: string) {
+    return apiFetch<{ success: true; message: string }>(`/workspaces/${workspaceId}/projects/${projectId}/archive`, { method: "PATCH" });
+  },
+
+  restore(workspaceId: string, projectId: string) {
+    return apiFetch<{ success: true; message: string }>(`/workspaces/${workspaceId}/projects/${projectId}/restore`, { method: "PATCH" });
   },
 };

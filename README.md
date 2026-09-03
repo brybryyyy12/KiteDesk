@@ -204,7 +204,7 @@ Authentication is handled using JWTs stored in HttpOnly cookies.
 * [x] Advanced task filtering
 * [x] Labels and tags
 * [x] Subtasks and checklists
-* [ ] Project archiving
+* [x] Project archiving
 
 ### Collaboration
 

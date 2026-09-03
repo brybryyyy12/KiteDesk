@@ -229,25 +229,25 @@ function ProjectBoardSection({
     hasPermission(
       role,
       "editAnyTask"
-    );
+    ) && !project.archivedAt;
 
   const canReviewTask =
     hasPermission(
       role,
       "reviewTask"
-    );
+    ) && !project.archivedAt;
 
   const canCreateTask =
     hasPermission(
       role,
       "createTask"
-    );
+    ) && !project.archivedAt;
 
   const canUpdateOwnTask =
     hasPermission(
       role,
       "updateOwnTask"
-    );
+    ) && !project.archivedAt;
 
   /*
   |--------------------------------------------------------------------------
@@ -399,7 +399,7 @@ function ProjectBoardSection({
       user &&
       task.assignee?.id ===
         user.id
-    );
+    ) && !project.archivedAt;
   };
 
   /*
@@ -482,7 +482,7 @@ function ProjectBoardSection({
       getAllowedTargetStatuses(
         task
       ).length > 0
-    );
+    ) && !project.archivedAt;
   };
 
   const canMoveTaskToStatus =

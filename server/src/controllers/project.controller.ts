@@ -127,6 +127,11 @@ const updateProjectSchema =
       }
     );
 
+const listProjectsQuerySchema =
+  z.object({
+    archived: z.enum(["true", "false"]).default("false"),
+  });
+
 /*
 |--------------------------------------------------------------------------
 | HELPERS
@@ -371,11 +376,18 @@ export async function getProjects(
     );
   }
 
+  const query = listProjectsQuerySchema.parse(request.query);
+
   const projects =
     await prisma.project.findMany({
       where: {
         workspaceId:
           workspace.id,
+
+        archivedAt:
+          query.archived === "true"
+            ? { not: null }
+            : null,
 
         /*
          * Owner / Manager:
@@ -396,6 +408,7 @@ export async function getProjects(
       },
 
       include: {
+        archivedBy: { select: { id: true, name: true } },
         createdBy: {
           select: {
             id: true,
@@ -632,6 +645,30 @@ export async function updateProject(
   });
 }
 
+export async function archiveProject(request: Request, response: Response) {
+  const project = request.project;
+  const user = request.user;
+  if (!project || !user) throw new AppError("Project context is missing.", 500);
+  if (project.archivedAt) throw new AppError("Project is already archived.", 409, "PROJECT_ALREADY_ARCHIVED");
+  await prisma.$transaction([
+    prisma.project.update({ where: { id: project.id }, data: { archivedAt: new Date(), archivedById: user.id } }),
+    prisma.activityLog.create({ data: { projectId: project.id, actorId: user.id, type: "PROJECT_UPDATED", message: `${user.name} archived the project.`, metadata: { action: "ARCHIVED" } } }),
+  ]);
+  response.json({ success: true, message: "Project archived successfully." });
+}
+
+export async function restoreProject(request: Request, response: Response) {
+  const project = request.project;
+  const user = request.user;
+  if (!project || !user) throw new AppError("Project context is missing.", 500);
+  if (!project.archivedAt) throw new AppError("Project is not archived.", 409, "PROJECT_NOT_ARCHIVED");
+  await prisma.$transaction([
+    prisma.project.update({ where: { id: project.id }, data: { archivedAt: null, archivedById: null } }),
+    prisma.activityLog.create({ data: { projectId: project.id, actorId: user.id, type: "PROJECT_UPDATED", message: `${user.name} restored the project.`, metadata: { action: "RESTORED" } } }),
+  ]);
+  response.json({ success: true, message: "Project restored successfully." });
+}
+
 /*
 |--------------------------------------------------------------------------
 | DELETE PROJECT
@@ -691,6 +728,7 @@ async function getProjectDetails(
       },
 
       include: {
+        archivedBy: { select: { id: true, name: true } },
         createdBy: {
           select: {
             id: true,
@@ -777,6 +815,10 @@ function mapProject(
     updatedAt:
       Date;
 
+    archivedAt: Date | null;
+    archivedById: string | null;
+    archivedBy: { id: string; name: string } | null;
+
     createdBy: {
       id: string;
       name: string;
@@ -837,6 +879,10 @@ function mapProject(
 
     updatedAt:
       project.updatedAt,
+
+    archivedAt: project.archivedAt,
+    archivedById: project.archivedById,
+    archivedBy: project.archivedBy,
 
     totalTasks:
       project._count.tasks,

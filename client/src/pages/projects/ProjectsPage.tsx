@@ -39,6 +39,7 @@ function ProjectsPage() {
 
   const {
     projects,
+    archivedProjects,
     isLoaded,
     isLoading,
     error,
@@ -62,6 +63,7 @@ function ProjectsPage() {
 
   const [search, setSearch] =
     useState("");
+  const [showArchived, setShowArchived] = useState(false);
 
   const [
     statusFilter,
@@ -119,7 +121,8 @@ function ProjectsPage() {
           .trim()
           .toLowerCase();
 
-      return projects.filter(
+      const displayedProjects = showArchived ? archivedProjects : projects;
+      return displayedProjects.filter(
         (project) => {
           const matchesSearch =
             !cleanSearch ||
@@ -147,6 +150,8 @@ function ProjectsPage() {
       );
     }, [
       projects,
+      archivedProjects,
+      showArchived,
       search,
       statusFilter,
     ]);
@@ -523,7 +528,7 @@ function ProjectsPage() {
             </p>
           </div>
 
-          {canManageProject && (
+          {canManageProject && !showArchived && (
             <button
               type="button"
               onClick={
@@ -544,6 +549,11 @@ function ProjectsPage() {
               New Project
             </button>
           )}
+        </div>
+
+        <div className="mb-5 inline-flex rounded-xl border border-kite-line bg-white p-1">
+          <button type="button" onClick={() => setShowArchived(false)} className={`rounded-lg px-4 py-2 text-sm font-medium ${!showArchived ? "bg-kite-blue-wash text-kite-blue-deep" : "text-kite-muted"}`}>Active Projects</button>
+          <button type="button" onClick={() => setShowArchived(true)} className={`rounded-lg px-4 py-2 text-sm font-medium ${showArchived ? "bg-amber-50 text-amber-800" : "text-kite-muted"}`}>Archived Projects ({archivedProjects.length})</button>
         </div>
 
         {/* PARTIAL ERROR */}
@@ -673,7 +683,7 @@ function ProjectsPage() {
         </div>
 
         {/* EMPTY */}
-        {projects.length === 0 && (
+        {(showArchived ? archivedProjects : projects).length === 0 && (
           <section className="rounded-2xl border border-kite-line bg-white px-5 py-12 text-center sm:px-6 sm:py-16">
             <div className="mx-auto grid h-14 w-14 place-items-center rounded-2xl bg-kite-blue-wash text-kite-blue-deep sm:h-16 sm:w-16">
               <svg
@@ -687,9 +697,9 @@ function ProjectsPage() {
               </svg>
             </div>
 
-            <h2 className="mt-5 text-lg font-semibold tracking-tight text-kite-ink sm:text-xl">
-              No projects yet
-            </h2>
+              <h2 className="mt-5 text-lg font-semibold tracking-tight text-kite-ink sm:text-xl">
+                {showArchived ? "No archived projects" : "No projects yet"}
+              </h2>
 
             <p className="mx-auto mt-2 max-w-md text-sm leading-6 text-kite-muted">
               {canManageProject

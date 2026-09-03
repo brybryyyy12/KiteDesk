@@ -116,6 +116,7 @@ model User {
   sentInvitations Invitation[] @relation("InvitationSender")
 
   createdProjects Project[] @relation("ProjectCreator")
+  archivedProjects Project[] @relation("ProjectArchiver")
 
   projectMemberships ProjectMember[] @relation("ProjectMemberUser")
 
@@ -281,10 +282,13 @@ model Project {
   createdById String        @map("created_by_id") @db.Uuid
   createdAt   DateTime      @default(now()) @map("created_at")
   updatedAt   DateTime      @updatedAt @map("updated_at")
+  archivedAt  DateTime?     @map("archived_at")
+  archivedById String?      @map("archived_by_id") @db.Uuid
 
   workspace Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
 
   createdBy User @relation("ProjectCreator", fields: [createdById], references: [id], onDelete: Restrict)
+  archivedBy User? @relation("ProjectArchiver", fields: [archivedById], references: [id], onDelete: SetNull)
 
   members ProjectMember[]
 
@@ -298,6 +302,8 @@ model Project {
   @@index([workspaceId, status])
   @@index([createdById])
   @@index([deadline])
+  @@index([workspaceId, archivedAt])
+  @@index([archivedById])
   @@map("projects")
 }
 

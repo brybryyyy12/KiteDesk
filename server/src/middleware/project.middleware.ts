@@ -141,6 +141,8 @@ export async function requireProjectAccess(
 
     updatedAt:
       project.updatedAt,
+    archivedAt: project.archivedAt,
+    archivedById: project.archivedById,
   };
 
   request.projectMembership =
@@ -167,5 +169,11 @@ export async function requireProjectAccess(
         }
       : null;
 
+  next();
+}
+
+export function requireActiveProject(request: Request, _response: Response, next: NextFunction) {
+  if (!request.project) throw new AppError("Project access is required.", 403, "PROJECT_ACCESS_REQUIRED");
+  if (request.project.archivedAt) throw new AppError("Archived projects are read-only. Restore the project before making changes.", 409, "PROJECT_ARCHIVED");
   next();
 }

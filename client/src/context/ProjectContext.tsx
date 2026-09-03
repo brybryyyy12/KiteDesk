@@ -84,6 +84,10 @@ export type Project = {
   completedTasks: number;
 
   totalTasks: number;
+
+  archivedAt: string | null;
+  archivedById: string | null;
+  archivedBy: { id: string; name: string } | null;
 };
 
 export type CreateProjectData = {
@@ -100,6 +104,7 @@ export type CreateProjectData = {
 
 type ProjectContextType = {
   projects: Project[];
+  archivedProjects: Project[];
 
   /*
    * Kept for compatibility with the
@@ -130,6 +135,8 @@ type ProjectContextType = {
       | string
       | number
   ) => Promise<void>;
+  archiveProject: (projectId: string | number) => Promise<void>;
+  restoreProject: (projectId: string | number) => Promise<void>;
 
   getProject: (
     projectId:
@@ -294,6 +301,10 @@ function mapApiProject(
     totalTasks:
       project.totalTasks,
 
+    archivedAt: project.archivedAt,
+    archivedById: project.archivedById,
+    archivedBy: project.archivedBy,
+
     members:
       project.members.map(
         (member) => ({
@@ -367,6 +378,7 @@ export function ProjectProvider({
     setProjects,
   ] =
     useState<Project[]>([]);
+  const [archivedProjects, setArchivedProjects] = useState<Project[]>([]);
 
   const [
     isLoading,
@@ -417,6 +429,7 @@ export function ProjectProvider({
             1;
 
           setProjects([]);
+          setArchivedProjects([]);
 
           setError("");
 
@@ -445,10 +458,8 @@ export function ProjectProvider({
         setError("");
 
         try {
-          const response =
-            await projectService.getAll(
-              workspaceId
-            );
+          const response = await projectService.getAll(workspaceId);
+          const archivedResponse = await projectService.getAll(workspaceId, true);
 
           /*
            * Ignore an outdated response
@@ -467,6 +478,7 @@ export function ProjectProvider({
               mapApiProject
             )
           );
+          setArchivedProjects(archivedResponse.data.projects.map(mapApiProject));
         } catch (error) {
           if (
             requestId !==
@@ -481,6 +493,7 @@ export function ProjectProvider({
           );
 
           setProjects([]);
+          setArchivedProjects([]);
 
           setError(
             getErrorMessage(
@@ -770,6 +783,18 @@ export function ProjectProvider({
       );
     };
 
+  const archiveProject = async (projectId: string | number) => {
+    if (!workspace) throw new Error("A workspace is required to archive a project.");
+    await projectService.archive(workspace.id, String(projectId));
+    await refreshProjects();
+  };
+
+  const restoreProject = async (projectId: string | number) => {
+    if (!workspace) throw new Error("A workspace is required to restore a project.");
+    await projectService.restore(workspace.id, String(projectId));
+    await refreshProjects();
+  };
+
   /*
   |--------------------------------------------------------------------------
   | GET PROJECT
@@ -787,7 +812,7 @@ export function ProjectProvider({
           projectId
         );
 
-      return projects.find(
+      return [...projects, ...archivedProjects].find(
         (project) =>
           project.id ===
           id
@@ -837,6 +862,7 @@ export function ProjectProvider({
     <ProjectContext.Provider
       value={{
         projects,
+        archivedProjects,
 
         isLoaded,
 
@@ -851,6 +877,8 @@ export function ProjectProvider({
         updateProject,
 
         deleteProject,
+        archiveProject,
+        restoreProject,
 
         getProject,
 

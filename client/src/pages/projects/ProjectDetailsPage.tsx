@@ -18,6 +18,8 @@ import {
 import {
   hasPermission,
 } from "../../lib/permissions";
+import { useTasks } from "../../context/TaskContext";
+import { useEffect } from "react";
 
 import ProjectTasksSection from "./ProjectTasksSection";
 
@@ -73,6 +75,8 @@ function ProjectDetailsPage() {
   } =
     useProjects();
 
+  const { refreshProjectTasks } = useTasks();
+
   const role =
     workspace?.role ??
     "Member";
@@ -95,6 +99,12 @@ function ProjectDetailsPage() {
           projectId
         )
       : undefined;
+
+  useEffect(() => {
+    if (project?.archivedAt) {
+      void refreshProjectTasks(project.id);
+    }
+  }, [project?.id, project?.archivedAt]);
 
   /*
   |--------------------------------------------------------------------------
@@ -455,6 +465,15 @@ function ProjectDetailsPage() {
 
   return (
     <div className="mx-auto min-w-0 max-w-[1500px]">
+
+      {project.archivedAt && (
+        <div className="mb-5 rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3" role="status">
+          <p className="text-sm font-semibold text-amber-900">Archived project · Read only</p>
+          <p className="mt-1 text-xs leading-5 text-amber-800">
+            All project data is preserved. Restore this project from Settings before making changes or creating tasks.
+          </p>
+        </div>
+      )}
 
       {/* BREADCRUMB */}
       <div className="mb-4 flex min-w-0 items-center gap-1.5 text-xs sm:mb-5 sm:gap-2 sm:text-sm">

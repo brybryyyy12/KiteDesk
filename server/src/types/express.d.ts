@@ -48,6 +48,9 @@ declare global {
 
         deadline: Date | null;
 
+        archivedAt: Date | null;
+        archivedById: string | null;
+
         createdById: string;
 
         createdAt: Date;
