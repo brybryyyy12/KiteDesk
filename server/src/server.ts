@@ -60,6 +60,20 @@ async function shutdown() {
   shuttingDown =
     true;
 
+  const forceExitTimer =
+    setTimeout(
+      () => {
+        console.error(
+          "Shutdown timed out; forcing process exit."
+        );
+
+        process.exit(1);
+      },
+      5_000
+    );
+
+  forceExitTimer.unref();
+
   console.log(
     "\nShutting down KiteDesk API..."
   );
@@ -68,6 +82,10 @@ async function shutdown() {
     async () => {
       try {
         await prisma.$disconnect();
+
+        clearTimeout(
+          forceExitTimer
+        );
 
         console.log(
           "Database disconnected."
@@ -88,6 +106,15 @@ async function shutdown() {
       }
     }
   );
+
+  /*
+   * Browsers and reverse proxies can keep
+   * idle HTTP connections alive after the
+   * server stops accepting new requests.
+   * Close them so local tests and deploy
+   * shutdowns cannot wait indefinitely.
+   */
+  server.closeAllConnections();
 }
 
 process.on(

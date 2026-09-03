@@ -195,8 +195,8 @@ Authentication is handled using JWTs stored in HttpOnly cookies.
 - [x] Password recovery
 - [x] Improved invitation authentication flow
 - [x] Persistent cloud attachment storage
-* [ ] Unit testing
-* [ ] End-to-end testing
+* [x] Unit and integration test foundation
+* [x] End-to-end browser test foundation
 
 ### Productivity
 

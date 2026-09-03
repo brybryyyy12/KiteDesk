@@ -15,6 +15,8 @@ client/dist/
 server/dist/
 dist/
 dist-ssr/
+client/playwright-report/
+client/test-results/
 
 
 # =========================================================

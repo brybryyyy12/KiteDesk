@@ -8,6 +8,14 @@
     "build": "tsc",
     "start": "node dist/server.js",
     "typecheck": "tsc --noEmit",
+    "test": "npm run test:db:prepare && vitest run",
+    "test:watch": "vitest",
+    "test:unit": "vitest run src/tests/unit",
+    "test:db:prepare": "node src/tests/helpers/prepare-test-db.mjs",
+    "test:integration": "npm run test:db:prepare && vitest run src/tests/integrations",
+    "test:coverage": "npm run test:db:prepare && vitest run --coverage",
+    "test:e2e:prepare": "npm run test:db:prepare && node src/tests/helpers/seed-e2e.mjs",
+    "test:e2e:server": "node src/tests/helpers/start-e2e-server.mjs",
     "prisma:generate": "prisma generate",
     "prisma:migrate": "prisma migrate dev",
     "prisma:studio": "prisma studio"
@@ -41,8 +49,12 @@
     "@types/multer": "^2.2.0",
     "@types/node": "^26.2.0",
     "@types/pg": "^8.23.1",
+    "@types/supertest": "^7.2.1",
+    "@vitest/coverage-v8": "^4.1.11",
     "prisma": "^7.9.1",
+    "supertest": "^7.2.2",
     "tsx": "^4.23.12",
-    "typescript": "^6.0.3"
+    "typescript": "^6.0.3",
+    "vitest": "^4.1.11"
   }
 }
