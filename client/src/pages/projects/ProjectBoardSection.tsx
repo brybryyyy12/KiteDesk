@@ -1,5 +1,6 @@
 import {
   useEffect,
+  useMemo,
   useState,
   type DragEvent,
   type FormEvent,
@@ -18,6 +19,7 @@ import {
   type ProjectTask,
   type TaskPriority,
   type TaskStatus,
+  type TaskType,
 } from "../../context/TaskContext";
 
 import {
@@ -257,6 +259,50 @@ function ProjectBoardSection({
     getTasksByProject(
       project.id
     );
+
+  const [search, setSearch] = useState("");
+  const [priorityFilter, setPriorityFilter] = useState<"All" | TaskPriority>("All");
+  const [typeFilter, setTypeFilter] = useState<"All" | TaskType>("All");
+  const [assigneeFilter, setAssigneeFilter] = useState("All");
+
+  const filteredProjectTasks = useMemo(() => {
+    const query = search.trim().toLowerCase();
+
+    return projectTasks.filter((task) => {
+      const matchesSearch =
+        !query ||
+        task.title.toLowerCase().includes(query) ||
+        task.description.toLowerCase().includes(query) ||
+        Boolean(task.assignee?.name.toLowerCase().includes(query));
+
+      const matchesPriority =
+        priorityFilter === "All" || task.priority === priorityFilter;
+
+      const matchesType =
+        typeFilter === "All" || task.type === typeFilter;
+
+      const matchesAssignee =
+        assigneeFilter === "All" ||
+        (assigneeFilter === "Unassigned"
+          ? !task.assignee
+          : task.assignee?.id === assigneeFilter);
+
+      return matchesSearch && matchesPriority && matchesType && matchesAssignee;
+    });
+  }, [projectTasks, search, priorityFilter, typeFilter, assigneeFilter]);
+
+  const filtersActive =
+    Boolean(search.trim()) ||
+    priorityFilter !== "All" ||
+    typeFilter !== "All" ||
+    assigneeFilter !== "All";
+
+  const clearFilters = () => {
+    setSearch("");
+    setPriorityFilter("All");
+    setTypeFilter("All");
+    setAssigneeFilter("All");
+  };
 
   /*
   |--------------------------------------------------------------------------
@@ -1215,7 +1261,7 @@ function ProjectBoardSection({
     ) ?? columns[0];
 
   const mobileColumnTasks =
-    projectTasks.filter(
+    filteredProjectTasks.filter(
       (task) =>
         task.status ===
         mobileColumn.status
@@ -1289,6 +1335,70 @@ function ProjectBoardSection({
           </div>
 
         </div>
+
+        {/* BOARD FILTERS */}
+        {projectTasks.length > 0 && (
+          <div className="mb-5 rounded-2xl border border-kite-line bg-white p-3 sm:p-4">
+            <input
+              type="search"
+              value={search}
+              onChange={(event) => setSearch(event.target.value)}
+              placeholder="Search board tasks..."
+              aria-label="Search board tasks"
+              className="w-full rounded-xl border border-kite-line bg-kite-soft px-4 py-3 text-sm text-kite-ink outline-none focus:border-kite-blue focus:bg-white focus:ring-4 focus:ring-kite-blue-wash"
+            />
+
+            <div className="mt-3 grid grid-cols-2 gap-2 lg:grid-cols-4">
+              <select
+                value={priorityFilter}
+                onChange={(event) => setPriorityFilter(event.target.value as "All" | TaskPriority)}
+                aria-label="Filter board by priority"
+                className="rounded-xl border border-kite-line bg-kite-soft px-3 py-3 text-sm outline-none focus:border-kite-blue focus:ring-4 focus:ring-kite-blue-wash"
+              >
+                <option value="All">All priorities</option>
+                <option value="Urgent">Urgent</option>
+                <option value="High">High</option>
+                <option value="Medium">Medium</option>
+                <option value="Low">Low</option>
+              </select>
+
+              <select
+                value={typeFilter}
+                onChange={(event) => setTypeFilter(event.target.value as "All" | TaskType)}
+                aria-label="Filter board by type"
+                className="rounded-xl border border-kite-line bg-kite-soft px-3 py-3 text-sm outline-none focus:border-kite-blue focus:ring-4 focus:ring-kite-blue-wash"
+              >
+                <option value="All">All types</option>
+                <option value="Task">Task</option>
+                <option value="Feature">Feature</option>
+                <option value="Bug">Bug</option>
+              </select>
+
+              <select
+                value={assigneeFilter}
+                onChange={(event) => setAssigneeFilter(event.target.value)}
+                aria-label="Filter board by assignee"
+                className="rounded-xl border border-kite-line bg-kite-soft px-3 py-3 text-sm outline-none focus:border-kite-blue focus:ring-4 focus:ring-kite-blue-wash"
+              >
+                <option value="All">All assignees</option>
+                <option value="Unassigned">Unassigned</option>
+                {project.members.map((member) => (
+                  <option key={member.id} value={member.id}>{member.name}</option>
+                ))}
+              </select>
+
+              {filtersActive && (
+                <button
+                  type="button"
+                  onClick={clearFilters}
+                  className="rounded-xl border border-kite-line bg-white px-4 py-3 text-sm font-medium text-kite-blue-deep transition hover:bg-kite-blue-wash"
+                >
+                  Clear filters
+                </button>
+              )}
+            </div>
+          </div>
+        )}
 
         {/* MEMBER NOTICE */}
         {role ===
@@ -1486,7 +1596,7 @@ function ProjectBoardSection({
                     column.status;
 
                   const count =
-                    projectTasks.filter(
+                    filteredProjectTasks.filter(
                       (task) =>
                         task.status ===
                         column.status
@@ -1624,7 +1734,7 @@ function ProjectBoardSection({
                 column
               ) => {
                 const columnTasks =
-                  projectTasks.filter(
+                  filteredProjectTasks.filter(
                     (
                       task
                     ) =>

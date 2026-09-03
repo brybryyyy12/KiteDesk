@@ -6,12 +6,16 @@ import {
   type ProjectTask,
   type TaskPriority,
   type TaskStatus,
+  type TaskType,
 } from "../../context/TaskContext";
 import { useWorkspace } from "../../context/WorkspaceContext";
 import { useAuth } from "../../context/AuthContext";
 
 type StatusFilter = "All" | TaskStatus;
 type PriorityFilter = "All" | TaskPriority;
+type TypeFilter = "All" | TaskType;
+type DueFilter = "All" | "Overdue" | "Today" | "Next 7 days" | "No due date";
+type SortOption = "Due date" | "Newest" | "Oldest" | "Priority";
 
 function MyTasksPage() {
   const navigate = useNavigate();
@@ -41,6 +45,12 @@ function MyTasksPage() {
     useState<PriorityFilter>("All");
   const [projectFilter, setProjectFilter] =
     useState("All");
+  const [typeFilter, setTypeFilter] =
+    useState<TypeFilter>("All");
+  const [dueFilter, setDueFilter] =
+    useState<DueFilter>("All");
+  const [sortOption, setSortOption] =
+    useState<SortOption>("Due date");
 
   /*
   |--------------------------------------------------------------------------
@@ -198,11 +208,37 @@ function MyTasksPage() {
             task.projectId ===
               projectFilter;
 
+          const matchesType =
+            typeFilter === "All" ||
+            task.type === typeFilter;
+
+          const today = new Date();
+          today.setHours(0, 0, 0, 0);
+
+          const nextWeek = new Date(today);
+          nextWeek.setDate(nextWeek.getDate() + 7);
+
+          const taskDueDate = task.dueDate
+            ? new Date(`${task.dueDate}T00:00:00`)
+            : null;
+
+          const matchesDue =
+            dueFilter === "All" ||
+            (dueFilter === "No due date" && !taskDueDate) ||
+            (dueFilter === "Overdue" &&
+              Boolean(taskDueDate && taskDueDate < today && task.status !== "Done")) ||
+            (dueFilter === "Today" &&
+              Boolean(taskDueDate && taskDueDate.getTime() === today.getTime())) ||
+            (dueFilter === "Next 7 days" &&
+              Boolean(taskDueDate && taskDueDate >= today && taskDueDate <= nextWeek));
+
           return (
             matchesSearch &&
             matchesStatus &&
             matchesPriority &&
-            matchesProject
+            matchesProject &&
+            matchesType &&
+            matchesDue
           );
         }
       );
@@ -213,6 +249,8 @@ function MyTasksPage() {
       statusFilter,
       priorityFilter,
       projectFilter,
+      typeFilter,
+      dueFilter,
     ]);
 
   /*
@@ -226,6 +264,25 @@ function MyTasksPage() {
       return [
         ...filteredTasks,
       ].sort((a, b) => {
+        if (sortOption === "Newest") {
+          return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
+        }
+
+        if (sortOption === "Oldest") {
+          return new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime();
+        }
+
+        if (sortOption === "Priority") {
+          const priorityRank: Record<TaskPriority, number> = {
+            Urgent: 0,
+            High: 1,
+            Medium: 2,
+            Low: 3,
+          };
+
+          return priorityRank[a.priority] - priorityRank[b.priority];
+        }
+
         if (
           a.status === "Done" &&
           b.status !== "Done"
@@ -277,7 +334,7 @@ function MyTasksPage() {
           ).getTime()
         );
       });
-    }, [filteredTasks]);
+    }, [filteredTasks, sortOption]);
 
   /*
   |--------------------------------------------------------------------------
@@ -537,6 +594,9 @@ function MyTasksPage() {
     setStatusFilter("All");
     setPriorityFilter("All");
     setProjectFilter("All");
+    setTypeFilter("All");
+    setDueFilter("All");
+    setSortOption("Due date");
   };
 
   const filtersActive =
@@ -545,7 +605,10 @@ function MyTasksPage() {
     ) ||
     statusFilter !== "All" ||
     priorityFilter !== "All" ||
-    projectFilter !== "All";
+    projectFilter !== "All" ||
+    typeFilter !== "All" ||
+    dueFilter !== "All" ||
+    sortOption !== "Due date";
 
   return (
     <div className="mx-auto min-w-0 max-w-[1500px]">
@@ -680,7 +743,7 @@ function MyTasksPage() {
 
         </div>
 
-        <div className="mt-3 grid grid-cols-2 gap-2 sm:grid-cols-3 sm:gap-3 xl:grid-cols-[minmax(190px,1fr)_170px_160px]">
+        <div className="mt-3 grid grid-cols-2 gap-2 sm:grid-cols-3 sm:gap-3 xl:grid-cols-4">
 
           {/* PROJECT */}
           <select
@@ -782,6 +845,46 @@ function MyTasksPage() {
               Low
             </option>
 
+          </select>
+
+          {/* TYPE */}
+          <select
+            value={typeFilter}
+            onChange={(event) => setTypeFilter(event.target.value as TypeFilter)}
+            aria-label="Filter by task type"
+            className="min-w-0 rounded-xl border border-kite-line bg-kite-soft px-3 py-3 text-sm text-kite-ink outline-none focus:border-kite-blue focus:bg-white focus:ring-4 focus:ring-kite-blue-wash sm:px-4"
+          >
+            <option value="All">All types</option>
+            <option value="Task">Task</option>
+            <option value="Feature">Feature</option>
+            <option value="Bug">Bug</option>
+          </select>
+
+          {/* DUE DATE */}
+          <select
+            value={dueFilter}
+            onChange={(event) => setDueFilter(event.target.value as DueFilter)}
+            aria-label="Filter by due date"
+            className="min-w-0 rounded-xl border border-kite-line bg-kite-soft px-3 py-3 text-sm text-kite-ink outline-none focus:border-kite-blue focus:bg-white focus:ring-4 focus:ring-kite-blue-wash sm:px-4"
+          >
+            <option value="All">Any due date</option>
+            <option value="Overdue">Overdue</option>
+            <option value="Today">Due today</option>
+            <option value="Next 7 days">Due in next 7 days</option>
+            <option value="No due date">No due date</option>
+          </select>
+
+          {/* SORT */}
+          <select
+            value={sortOption}
+            onChange={(event) => setSortOption(event.target.value as SortOption)}
+            aria-label="Sort tasks"
+            className="min-w-0 rounded-xl border border-kite-line bg-kite-soft px-3 py-3 text-sm text-kite-ink outline-none focus:border-kite-blue focus:bg-white focus:ring-4 focus:ring-kite-blue-wash sm:px-4"
+          >
+            <option value="Due date">Sort: Due date</option>
+            <option value="Priority">Sort: Priority</option>
+            <option value="Newest">Sort: Newest</option>
+            <option value="Oldest">Sort: Oldest</option>
           </select>
 
         </div>

@@ -196,6 +196,31 @@ function ProjectTasksSection({
       "All" | TaskStatus
     >("All");
 
+  const [
+    priorityFilter,
+    setPriorityFilter,
+  ] = useState<"All" | TaskPriority>("All");
+
+  const [
+    typeFilter,
+    setTypeFilter,
+  ] = useState<"All" | TaskType>("All");
+
+  const [
+    assigneeFilter,
+    setAssigneeFilter,
+  ] = useState("All");
+
+  const [
+    dueFilter,
+    setDueFilter,
+  ] = useState<"All" | "Overdue" | "Today" | "Next 7 days" | "No due date">("All");
+
+  const [
+    sortOption,
+    setSortOption,
+  ] = useState<"Due date" | "Newest" | "Oldest" | "Priority">("Due date");
+
   /*
   |--------------------------------------------------------------------------
   | CREATE FORM
@@ -340,9 +365,47 @@ function ProjectTasksSection({
               task.status ===
                 statusFilter;
 
+            const matchesPriority =
+              priorityFilter === "All" ||
+              task.priority === priorityFilter;
+
+            const matchesType =
+              typeFilter === "All" ||
+              task.type === typeFilter;
+
+            const matchesAssignee =
+              assigneeFilter === "All" ||
+              (assigneeFilter === "Unassigned"
+                ? !task.assignee
+                : task.assignee?.id === assigneeFilter);
+
+            const today = new Date();
+            today.setHours(0, 0, 0, 0);
+
+            const nextWeek = new Date(today);
+            nextWeek.setDate(nextWeek.getDate() + 7);
+
+            const taskDueDate = task.dueDate
+              ? new Date(`${task.dueDate}T00:00:00`)
+              : null;
+
+            const matchesDue =
+              dueFilter === "All" ||
+              (dueFilter === "No due date" && !taskDueDate) ||
+              (dueFilter === "Overdue" &&
+                Boolean(taskDueDate && taskDueDate < today && task.status !== "Done")) ||
+              (dueFilter === "Today" &&
+                Boolean(taskDueDate && taskDueDate.getTime() === today.getTime())) ||
+              (dueFilter === "Next 7 days" &&
+                Boolean(taskDueDate && taskDueDate >= today && taskDueDate <= nextWeek));
+
             return (
               matchesSearch &&
-              matchesStatus
+              matchesStatus &&
+              matchesPriority &&
+              matchesType &&
+              matchesAssignee &&
+              matchesDue
             );
           }
         );
@@ -351,8 +414,63 @@ function ProjectTasksSection({
         projectTasks,
         search,
         statusFilter,
+        priorityFilter,
+        typeFilter,
+        assigneeFilter,
+        dueFilter,
       ]
     );
+
+  const sortedFilteredTasks =
+    useMemo(() => {
+      const priorityRank: Record<TaskPriority, number> = {
+        Urgent: 0,
+        High: 1,
+        Medium: 2,
+        Low: 3,
+      };
+
+      return [...filteredTasks].sort((a, b) => {
+        if (sortOption === "Newest") {
+          return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
+        }
+
+        if (sortOption === "Oldest") {
+          return new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime();
+        }
+
+        if (sortOption === "Priority") {
+          return priorityRank[a.priority] - priorityRank[b.priority];
+        }
+
+        if (a.dueDate && b.dueDate) {
+          return a.dueDate.localeCompare(b.dueDate);
+        }
+
+        if (a.dueDate) return -1;
+        if (b.dueDate) return 1;
+        return 0;
+      });
+    }, [filteredTasks, sortOption]);
+
+  const filtersActive =
+    Boolean(search.trim()) ||
+    statusFilter !== "All" ||
+    priorityFilter !== "All" ||
+    typeFilter !== "All" ||
+    assigneeFilter !== "All" ||
+    dueFilter !== "All" ||
+    sortOption !== "Due date";
+
+  const clearFilters = () => {
+    setSearch("");
+    setStatusFilter("All");
+    setPriorityFilter("All");
+    setTypeFilter("All");
+    setAssigneeFilter("All");
+    setDueFilter("All");
+    setSortOption("Due date");
+  };
 
   /*
   |--------------------------------------------------------------------------
@@ -967,9 +1085,9 @@ function ProjectTasksSection({
         )}
 
         {/* FILTERS */}
-        <div className="mb-5 flex flex-col gap-3 sm:flex-row">
+        <div className="mb-5 rounded-2xl border border-kite-line bg-kite-soft/40 p-3">
 
-          <div className="relative flex-1">
+          <div className="relative">
 
             <svg
               viewBox="0 0 24 24"
@@ -1005,6 +1123,7 @@ function ProjectTasksSection({
 
           </div>
 
+          <div className="mt-3 grid grid-cols-2 gap-2 md:grid-cols-3 xl:grid-cols-4">
           <select
             value={
               statusFilter
@@ -1046,6 +1165,80 @@ function ProjectTasksSection({
             )}
 
           </select>
+
+          <select
+            value={priorityFilter}
+            onChange={(event) => setPriorityFilter(event.target.value as "All" | TaskPriority)}
+            aria-label="Filter by priority"
+            className="rounded-xl border border-kite-line bg-white px-4 py-3 text-sm outline-none focus:border-kite-blue focus:ring-4 focus:ring-kite-blue-wash"
+          >
+            <option value="All">All priorities</option>
+            <option value="Urgent">Urgent</option>
+            <option value="High">High</option>
+            <option value="Medium">Medium</option>
+            <option value="Low">Low</option>
+          </select>
+
+          <select
+            value={typeFilter}
+            onChange={(event) => setTypeFilter(event.target.value as "All" | TaskType)}
+            aria-label="Filter by task type"
+            className="rounded-xl border border-kite-line bg-white px-4 py-3 text-sm outline-none focus:border-kite-blue focus:ring-4 focus:ring-kite-blue-wash"
+          >
+            <option value="All">All types</option>
+            <option value="Task">Task</option>
+            <option value="Feature">Feature</option>
+            <option value="Bug">Bug</option>
+          </select>
+
+          <select
+            value={assigneeFilter}
+            onChange={(event) => setAssigneeFilter(event.target.value)}
+            aria-label="Filter by assignee"
+            className="rounded-xl border border-kite-line bg-white px-4 py-3 text-sm outline-none focus:border-kite-blue focus:ring-4 focus:ring-kite-blue-wash"
+          >
+            <option value="All">All assignees</option>
+            <option value="Unassigned">Unassigned</option>
+            {project.members.map((member) => (
+              <option key={member.id} value={member.id}>{member.name}</option>
+            ))}
+          </select>
+
+          <select
+            value={dueFilter}
+            onChange={(event) => setDueFilter(event.target.value as typeof dueFilter)}
+            aria-label="Filter by due date"
+            className="rounded-xl border border-kite-line bg-white px-4 py-3 text-sm outline-none focus:border-kite-blue focus:ring-4 focus:ring-kite-blue-wash"
+          >
+            <option value="All">Any due date</option>
+            <option value="Overdue">Overdue</option>
+            <option value="Today">Due today</option>
+            <option value="Next 7 days">Due in next 7 days</option>
+            <option value="No due date">No due date</option>
+          </select>
+
+          <select
+            value={sortOption}
+            onChange={(event) => setSortOption(event.target.value as typeof sortOption)}
+            aria-label="Sort tasks"
+            className="rounded-xl border border-kite-line bg-white px-4 py-3 text-sm outline-none focus:border-kite-blue focus:ring-4 focus:ring-kite-blue-wash"
+          >
+            <option value="Due date">Sort: Due date</option>
+            <option value="Priority">Sort: Priority</option>
+            <option value="Newest">Sort: Newest</option>
+            <option value="Oldest">Sort: Oldest</option>
+          </select>
+
+          {filtersActive && (
+            <button
+              type="button"
+              onClick={clearFilters}
+              className="rounded-xl border border-kite-line bg-white px-4 py-3 text-sm font-medium text-kite-blue-deep transition hover:bg-kite-blue-wash"
+            >
+              Clear filters
+            </button>
+          )}
+          </div>
 
         </div>
 
@@ -1107,7 +1300,7 @@ function ProjectTasksSection({
           !isLoading &&
           projectTasks.length >
             0 &&
-          filteredTasks.length ===
+          sortedFilteredTasks.length ===
             0 && (
           <div className="rounded-2xl border border-kite-line bg-white px-6 py-12 text-center">
 
@@ -1127,7 +1320,7 @@ function ProjectTasksSection({
         {/* TABLE */}
         {isLoaded &&
           !isLoading &&
-          filteredTasks.length >
+          sortedFilteredTasks.length >
             0 && (
           <div className="overflow-hidden rounded-2xl border border-kite-line bg-white">
 
@@ -1145,7 +1338,7 @@ function ProjectTasksSection({
 
             <div className="divide-y divide-kite-line">
 
-              {filteredTasks.map(
+              {sortedFilteredTasks.map(
                 (
                   task
                 ) => {
